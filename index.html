@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sermon Slide Converter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+  :root{
+    --bg: #0a0a0b;
+    --panel: #131316;
+    --panel-edge: #232328;
+    --panel-edge-hover: #34343c;
+    --text: #e4e4e7;
+    --text-dim: #6b6b74;
+    --accent: #7fa1d6;
+    --accent-dim: #161e2b;
+    --accent-soft: #24304a;
+    --accent-text: #0d1420;
+    --err: #ef5350;
+    --mono: "IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans: "Roboto", sans-serif
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:var(--sans); padding:72px 24px 72px;
+  }
+  .wrap{max-width:540px; margin:0 auto;}
+
+  h1{
+    font-family:var(--sans); font-size:19px; font-weight:650; letter-spacing:-.01em;
+    margin:0; text-transform:none; color:var(--text); text-align:left;
+  }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:10px;
+  }
+  .tpl-toggle{
+    flex:none; width:32px; height:32px; border-radius:8px; border:1px solid var(--panel-edge);
+    background:var(--panel); color:var(--text-dim); cursor:pointer; display:flex; align-items:center;
+    justify-content:center; font-size:14px; transition:border-color .15s, color .15s, background .15s;
+    position:relative;
+  }
+  .tpl-toggle:hover{ border-color:var(--panel-edge-hover); color:var(--text); }
+  .tpl-toggle.active{ border-color:var(--accent-soft); background:var(--accent-dim); color:var(--accent); }
+  .tpl-toggle .dot{
+    position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%;
+    background:var(--accent); display:none;
+  }
+  .tpl-toggle.custom .dot{ display:block; }
+
+  .tpl-status{
+    font-family:var(--sans); font-size:10.5px; color:var(--text-dim); text-align:left;
+    margin:0 0 36px; letter-spacing:.02em;
+  }
+  .tpl-status .accent{ color:var(--accent); cursor:pointer; text-decoration:underline; text-decoration-color:var(--accent-soft); }
+
+  .field{ margin-bottom:26px; }
+  .field label{
+    display:block; font-family:var(--mono); font-size:10.5px; color:var(--text-dim);
+    margin-bottom:7px; text-transform:uppercase; letter-spacing:.1em;
+  }
+  .field input[type=text]{
+    width:100%; background:var(--panel); border:1px solid var(--panel-edge); color:var(--text);
+    padding:12px 13px; border-radius:8px; font-family:var(--sans); font-size:14px;
+    transition:border-color .15s;
+  }
+  .field input::placeholder{ color:#4a4a52; }
+  .field input:focus{ outline:none; border-color:var(--accent); }
+
+  .upload-field{ margin-bottom:18px; }
+  .upload-label{
+    display:flex; align-items:baseline; gap:6px; font-family:var(--mono); font-size:10.5px;
+    color:var(--text-dim); margin-bottom:7px; text-transform:uppercase; letter-spacing:.1em;
+  }
+  .upload-label .opt{
+    font-size:10px; color:var(--text-dim); font-weight:400; text-transform:none; letter-spacing:0;
+    opacity:.75;
+  }
+
+  .dropzone{
+    position:relative; background:var(--panel); border:1.5px dashed var(--panel-edge); border-radius:10px;
+    padding:26px 18px; cursor:pointer; text-align:center;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone:hover{ border-color:var(--panel-edge-hover); }
+  .dropzone.drag-over{ border-color:var(--accent); background:var(--accent-dim); }
+  .dropzone input[type=file]{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0; opacity:0;
+  }
+
+  .dz-empty .dz-icon{
+    width:30px; height:30px; margin:0 auto 12px; border-radius:8px; background:#1c1c20;
+    display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:15px;
+  }
+  .dz-empty .dz-text{ font-size:13.5px; color:var(--text); }
+  .dz-empty .dz-or{
+    font-family:var(--mono); font-size:10px; color:var(--text-dim); margin:10px 0;
+    text-transform:uppercase; letter-spacing:.1em;
+  }
+  .dz-empty .dz-browse{
+    display:inline-block; font-family:var(--mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:.06em; background:var(--panel-edge); color:var(--text); padding:9px 16px;
+    border-radius:6px; transition:background .15s;
+  }
+  .dropzone:hover .dz-empty .dz-browse{ background:var(--panel-edge-hover); }
+
+  .dz-file{
+    display:none; align-items:center; gap:12px; text-align:left; cursor:default;
+  }
+  .dropzone.has-file{ border-style:solid; border-color:var(--accent-soft); background:var(--accent-dim); padding:14px 14px 14px 16px; }
+  .dropzone.has-file .dz-empty{ display:none; }
+  .dropzone.has-file .dz-file{ display:flex; }
+  .dz-file-icon{
+    flex:none; width:30px; height:30px; border-radius:8px; background:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:14px;
+  }
+  .dz-file-name{
+    flex:1; min-width:0; font-family:var(--mono); font-size:11.5px; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .dz-remove{
+    flex:none; width:26px; height:26px; border-radius:6px; border:none; background:none;
+    color:var(--text-dim); font-size:16px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:background .15s, color .15s;
+  }
+  .dz-remove:hover{ background:rgba(239,83,80,.12); color:var(--err); }
+
+  .dz-empty .dz-sub{ font-size:11.5px; color:var(--text-dim); margin-top:5px; }
+
+  .file-list{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+  .file-item{
+    display:flex; align-items:center; gap:13px; background:var(--panel); border:1px solid var(--panel-edge);
+    border-radius:10px; padding:14px 15px;
+  }
+  .file-item-icon{
+    flex:none; width:32px; height:32px; border-radius:8px; background:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:14px;
+  }
+  .file-item-info{ flex:1; min-width:0; }
+  .file-item-name{
+    font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .file-item-meta{ font-family:var(--mono); font-size:10.5px; color:var(--text-dim); margin-top:4px; }
+  .file-item-remove{
+    flex:none; width:26px; height:26px; border-radius:6px; border:none; background:none;
+    color:var(--text-dim); font-size:16px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:background .15s, color .15s;
+  }
+  .file-item-remove:hover{ background:rgba(239,83,80,.12); color:var(--err); }
+
+  button.run{
+    width:100%; margin-top:18px; padding:15px; border-radius:8px; border:none;
+    background:var(--accent-dim); color:var(--accent); font-family:var(--mono); font-size:12.5px;
+    letter-spacing:.08em; text-transform:uppercase; cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  button.run:enabled:hover{ background:var(--accent); color:var(--accent-text); }
+  button.run:disabled{ opacity:.4; cursor:not-allowed; }
+
+  .progress-wrap{ display:none; margin-top:22px; }
+  .progress-wrap.show{ display:block; }
+  .progress-status{
+    font-family:var(--mono); font-size:11.5px; color:var(--text-dim); margin-bottom:8px;
+    display:flex; justify-content:space-between; gap:10px;
+  }
+  .progress-status .pct{ color:var(--accent); }
+  .progress-track{
+    height:5px; border-radius:3px; background:var(--panel-edge); overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; width:0%; border-radius:3px; background:var(--accent);
+    transition:width .35s ease;
+  }
+  .progress-wrap.err .progress-fill{ background:var(--err); }
+  .progress-wrap.err .progress-status{ color:#ff8b87; }
+  .progress-wrap.err .progress-status .pct{ color:var(--err); }
+
+  .output{
+    display:none; background:var(--accent-dim); border:1px solid var(--accent-soft); border-radius:10px;
+    padding:18px 20px; margin-top:18px; flex-direction:column; gap:12px;
+  }
+  .output.show{ display:flex; }
+  .output .top{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .output .msg{ font-size:13.5px; color:var(--text); }
+  .output .msg .fname{ font-family:var(--mono); font-size:11.5px; display:block; margin-top:3px; color:var(--accent);}
+  .output a{
+    font-family:var(--mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.06em;
+    background:var(--accent); color:var(--accent-text); padding:9px 15px; border-radius:6px; text-decoration:none;
+    white-space:nowrap; font-weight:600; flex:none;
+  }
+  .output .breakdown{ font-size:11.5px; color:#9fb3d1; font-family:var(--mono); line-height:1.6; }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <h1>Sermon Slide Converter</h1>
+    <button type="button" class="tpl-toggle" id="tplToggle" title="Template settings" aria-label="Template settings">
+      &#9881;<span class="dot"></span>
+    </button>
+  </div>
+  <div class="tpl-status" id="tplStatus">Using default template &mdash; <span class="accent" id="tplStatusLink">Change</span></div>
+
+  <div class="upload-field" id="templateSection" style="display:none;">
+    <div class="upload-label">Template <span class="opt">.probundle &mdash; optional, overrides default</span></div>
+    <div class="dropzone" id="dropTemplate" role="button" tabindex="0">
+      <input type="file" id="fileTemplate" accept=".probundle,.zip">
+      <div class="dz-empty">
+        <div class="dz-icon">&#8593;</div>
+        <div class="dz-text">Drag file to upload</div>
+        <div class="dz-or">Or</div>
+        <span class="dz-browse">Browse File</span>
+      </div>
+      <div class="dz-file">
+        <span class="dz-file-icon">&#10003;</span>
+        <span class="dz-file-name" id="nameTemplate"></span>
+        <button type="button" class="dz-remove" id="removeTemplate" aria-label="Remove file">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="titleField">Title</label>
+    <input type="text" id="titleField" placeholder="Leave blank to keep .docx filename">
+  </div>
+
+  <div class="upload-field field">
+    <label for="fileCombined">file upload</label>
+    <div class="dropzone" id="dropCombined" role="button" tabindex="0">
+      <input type="file" id="fileCombined" accept=".docx,.png,.jpg,.jpeg,image/png,image/jpeg" multiple>
+      <div class="dz-empty" id="dzCombinedEmpty">
+        <div class="dz-icon">&#8593;</div>
+        <div class="dz-text">Click to upload or drag and drop</div>
+        <div class="dz-sub">.docx required &middot; PNG/JPG optional</div>
+      </div>
+    </div>
+    <div class="file-list" id="fileList"></div>
+  </div>
+
+  <button class="run" id="runBtn" disabled>Waiting on files&hellip;</button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-status">
+      <span id="progressLabel">Starting&hellip;</span>
+      <span class="pct" id="progressPct">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="output" id="output">
+    <div class="top">
+      <div class="msg">Bundle built.<span class="fname" id="outName"></span></div>
+      <a id="downloadLink" download>Download</a>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+<script>
+const PY_SOURCES = {"protobuf_tree.py": "\"\"\"\nprotobuf_tree.py\n\nSchema-less protobuf byte-tree editor.\n\nProPresenter's .pro files are protobuf messages, but we don't have the\n.proto schema. This module parses ANY protobuf-encoded bytes into a tree\nof raw fields (tag / wire-type / length / value), recursing into any\nlength-delimited field whose contents also happen to parse cleanly as a\nprotobuf message. Because every node keeps its *original raw bytes* as\nthe source of truth, re-serializing an untouched tree reproduces the\ninput byte-for-byte. Editing a leaf's bytes and re-serializing only\nrecomputes the varint length prefixes on the path from that leaf up to\nthe root -- nothing else moves, so tag numbers and wire types are never\nat risk of getting out of sync.\n\nCore object: Field\n    .num        int   protobuf field number\n    .wire_type  int   0=varint, 1=64-bit, 2=length-delimited, 5=32-bit\n    .raw        bytes the *value* bytes exactly as read from the source\n                       (for wire_type 2: NOT including the length prefix)\n    .children   list[Field] | None\n                       populated only for wire_type 2 fields whose raw\n                       bytes fully parse as a sequence of valid Fields.\n                       None means \"leaf\" -- treat .raw as opaque bytes\n                       (string/bytes/sub-message we chose not to recurse\n                       into, or a value that just isn't a submessage).\n\nTop-level entry points:\n    parse(data: bytes) -> list[Field]      parse a whole message\n    serialize(fields: list[Field]) -> bytes  inverse of parse()\n\nTree editing helpers:\n    find_all(fields, num) -> list[Field]           direct children matching num\n    find_path(fields, *nums) -> Field | None        walk nested field numbers\n    Field.set_bytes(new_raw)                        replace leaf payload\n    clone_field(f) -> Field                         deep copy (for cloning\n                                                      repeated messages, e.g.\n                                                      cloning a template Cue)\n\"\"\"\n\nfrom __future__ import annotations\nfrom dataclasses import dataclass, field as dc_field\nfrom typing import Optional, List\n\n\nWIRE_VARINT = 0\nWIRE_64BIT = 1\nWIRE_LEN = 2\nWIRE_32BIT = 5\n\n_VALID_WIRE_TYPES = {WIRE_VARINT, WIRE_64BIT, WIRE_LEN, WIRE_32BIT}\n\n\nclass ParseError(ValueError):\n    pass\n\n\ndef read_varint(data: bytes, pos: int) -> tuple[int, int]:\n    \"\"\"Return (value, new_pos). Raises ParseError on truncated/overlong varint.\"\"\"\n    result = 0\n    shift = 0\n    start = pos\n    while True:\n        if pos >= len(data):\n            raise ParseError(f\"truncated varint at {start}\")\n        b = data[pos]\n        result |= (b & 0x7F) << shift\n        pos += 1\n        if not (b & 0x80):\n            break\n        shift += 7\n        if shift > 70:\n            raise ParseError(f\"varint too long at {start}\")\n    return result, pos\n\n\ndef write_varint(value: int) -> bytes:\n    if value < 0:\n        raise ValueError(\"protobuf varints must be non-negative (use zigzag upstream)\")\n    out = bytearray()\n    while True:\n        b = value & 0x7F\n        value >>= 7\n        if value:\n            out.append(b | 0x80)\n        else:\n            out.append(b)\n            break\n    return bytes(out)\n\n\n@dataclass\nclass Field:\n    num: int\n    wire_type: int\n    raw: bytes                      # value bytes only, no tag/length prefix\n    children: Optional[List[\"Field\"]] = None\n\n    def is_message(self) -> bool:\n        return self.children is not None\n\n    def set_bytes(self, new_raw: bytes) -> None:\n        \"\"\"Replace this leaf's payload. Drops any children (it's a leaf now).\"\"\"\n        self.raw = new_raw\n        self.children = None\n\n    def text(self, encoding=\"utf-8\") -> str:\n        return self.raw.decode(encoding)\n\n    def set_text(self, s: str, encoding=\"utf-8\") -> None:\n        self.set_bytes(s.encode(encoding))\n\n    def varint_value(self) -> int:\n        if self.wire_type != WIRE_VARINT:\n            raise ValueError(\"not a varint field\")\n        v, pos = read_varint(self.raw, 0)\n        if pos != len(self.raw):\n            raise ValueError(\"varint field raw has trailing bytes\")\n        return v\n\n\ndef _try_parse_submessage(data: bytes) -> Optional[List[Field]]:\n    \"\"\"Try to parse `data` as a full sequence of protobuf fields.\n    Returns the field list on success, or None if it doesn't look valid.\n    Uses conservative heuristics to avoid false positives on plain text/binary\n    blobs that happen to start with a byte that looks like a tag.\n    \"\"\"\n    if len(data) == 0:\n        # An empty message is technically valid but truly ambiguous\n        # (also matches \"empty string\"). Don't claim it's a message;\n        # caller keeps it as a leaf.\n        return None\n    try:\n        fields = _parse_fields(data, strict=True)\n    except ParseError:\n        return None\n    if not fields:\n        return None\n    for f in fields:\n        if f.wire_type not in _VALID_WIRE_TYPES:\n            return None\n        if f.num <= 0 or f.num > 536870911:  # max 29-bit field number\n            return None\n    return fields\n\n\ndef _parse_fields(data: bytes, strict: bool) -> List[Field]:\n    pos = 0\n    n = len(data)\n    fields: List[Field] = []\n    while pos < n:\n        tag, pos = read_varint(data, pos)\n        wire_type = tag & 0x7\n        num = tag >> 3\n        if strict and (num <= 0 or wire_type not in _VALID_WIRE_TYPES):\n            raise ParseError(f\"implausible tag {tag} at {pos}\")\n        if wire_type == WIRE_VARINT:\n            start = pos\n            _, pos = read_varint(data, pos)\n            raw = data[start:pos]\n            fields.append(Field(num, wire_type, raw))\n        elif wire_type == WIRE_64BIT:\n            if pos + 8 > n:\n                raise ParseError(f\"truncated 64-bit field at {pos}\")\n            raw = data[pos:pos + 8]\n            pos += 8\n            fields.append(Field(num, wire_type, raw))\n        elif wire_type == WIRE_32BIT:\n            if pos + 4 > n:\n                raise ParseError(f\"truncated 32-bit field at {pos}\")\n            raw = data[pos:pos + 4]\n            pos += 4\n            fields.append(Field(num, wire_type, raw))\n        elif wire_type == WIRE_LEN:\n            length, pos = read_varint(data, pos)\n            if pos + length > n:\n                raise ParseError(f\"length-delimited field overruns buffer at {pos}\")\n            raw = data[pos:pos + length]\n            pos += length\n            children = _try_parse_submessage(raw)\n            fields.append(Field(num, wire_type, raw, children))\n        else:\n            raise ParseError(f\"unknown wire type {wire_type}\")\n    return fields\n\n\ndef parse(data: bytes) -> List[Field]:\n    \"\"\"Parse a top-level protobuf message. Top-level parse is non-strict\n    about implausible tags since we already know this is a real message\n    (caller has a whole .pro file), but still raises on structural\n    truncation so bugs surface loudly instead of silently losing bytes.\n    \"\"\"\n    return _parse_fields(data, strict=False)\n\n\ndef serialize(fields: List[Field]) -> bytes:\n    out = bytearray()\n    for f in fields:\n        tag = (f.num << 3) | f.wire_type\n        out += write_varint(tag)\n        if f.wire_type == WIRE_VARINT:\n            out += f.raw\n        elif f.wire_type == WIRE_64BIT:\n            assert len(f.raw) == 8\n            out += f.raw\n        elif f.wire_type == WIRE_32BIT:\n            assert len(f.raw) == 4\n            out += f.raw\n        elif f.wire_type == WIRE_LEN:\n            if f.children is not None:\n                payload = serialize(f.children)\n            else:\n                payload = f.raw\n            out += write_varint(len(payload))\n            out += payload\n        else:\n            raise ValueError(f\"unknown wire type {f.wire_type}\")\n    return bytes(out)\n\n\n# ---------------------------------------------------------------- helpers\n\ndef find_all(fields: List[Field], num: int) -> List[Field]:\n    return [f for f in fields if f.num == num]\n\n\ndef find_path(fields: List[Field], *nums: int) -> Optional[Field]:\n    \"\"\"Walk nested field numbers, returning the first match at each level.\n    find_path(root, 5, 2, 1) == root's first field #5 -> its first\n    child field #2 -> its first child field #1.\n    \"\"\"\n    cur = fields\n    node = None\n    for n in nums:\n        matches = find_all(cur, n) if isinstance(cur, list) else find_all(cur.children or [], n)\n        if not matches:\n            return None\n        node = matches[0]\n        cur = node\n    return node\n\n\ndef clone_field(f: Field) -> Field:\n    return Field(\n        num=f.num,\n        wire_type=f.wire_type,\n        raw=f.raw,\n        children=[clone_field(c) for c in f.children] if f.children is not None else None,\n    )\n\n\ndef dump(fields: List[Field], indent: int = 0, max_leaf_bytes: int = 60, _path=()) -> None:\n    \"\"\"Debug helper: print the tree with byte offsets omitted (structure only).\"\"\"\n    for f in fields:\n        prefix = \"  \" * indent\n        if f.children is not None:\n            print(f\"{prefix}#{f.num} (msg, wt={f.wire_type}) len={len(f.raw)} children={len(f.children)}\")\n            dump(f.children, indent + 1, max_leaf_bytes, _path + (f.num,))\n        else:\n            if f.wire_type == WIRE_VARINT:\n                try:\n                    val = f.varint_value()\n                except Exception:\n                    val = \"?\"\n                print(f\"{prefix}#{f.num} (varint) = {val}\")\n            else:\n                preview = f.raw[:max_leaf_bytes]\n                try:\n                    text_preview = preview.decode(\"utf-8\")\n                    is_text = all(32 <= ord(c) < 127 or c in \"\\n\\r\\t\" for c in text_preview) and len(text_preview) > 0\n                except Exception:\n                    is_text = False\n                if is_text:\n                    shown = repr(text_preview)\n                else:\n                    shown = preview.hex()\n                more = \"...\" if len(f.raw) > max_leaf_bytes else \"\"\n                print(f\"{prefix}#{f.num} (wt={f.wire_type}) len={len(f.raw)} = {shown}{more}\")\n\n\ndef roundtrip_check(data: bytes) -> bool:\n    \"\"\"Parse then re-serialize; return True iff byte-identical to input.\"\"\"\n    fields = parse(data)\n    return serialize(fields) == data\n\n\nif __name__ == \"__main__\":\n    import sys\n    path = sys.argv[1] if len(sys.argv) > 1 else None\n    if path:\n        raw = open(path, \"rb\").read()\n        fields = parse(raw)\n        ok = serialize(fields) == raw\n        print(f\"parsed {len(fields)} top-level fields, round-trip OK: {ok}\")\n        dump(fields)\n", "rtf_builder.py": "\"\"\"\nrtf_builder.py\n\nProPresenter stores each text-box's content as a whole embedded RTF blob\n(font table, color table, paragraph formatting, then the actual text\nrun). Rather than hand-building an RTF skeleton from scratch -- which\nhas to independently match whatever font/color/scaling the template\nslide was authored with -- this module finds the existing plain-text\nspan *inside* a real RTF blob taken from a template slide and swaps\njust that span, byte-for-byte, leaving every formatting control word\nuntouched. That's the safest way to reuse a template's exact styling.\n\nCore functions:\n    find_text_span(rtf: bytes) -> (start, end) | None\n        Locate the plain-text payload of the *first* paragraph run in\n        an RTF blob (after \\\\pard ... \\\\partightenfactor0 and its\n        following font/color/etc control words). Returns byte offsets\n        into `rtf`, or None if this blob has no text run at all (e.g.\n        an empty placeholder text box).\n\n    replace_text(rtf: bytes, new_text: str) -> bytes\n        Return a new RTF blob with the text span replaced by\n        `new_text`, RTF-escaped. Raises ValueError if the blob has no\n        text span to replace.\n\n    escape_rtf(text: str) -> bytes\n        Turn a plain python string into RTF-escaped bytes: backslashes,\n        braces, and newlines are escaped per RTF syntax; non-ASCII\n        characters are emitted as \\\\uNNNN? (RTF's unicode escape,\n        followed by a literal '?' fallback byte for readers that don't\n        understand \\\\u).\n\"\"\"\n\nfrom __future__ import annotations\nimport re\nfrom typing import Optional, Tuple\n\n_CTRLWORD = re.compile(rb\"\\\\([a-zA-Z]+)(-?\\d+)?( )?\")\n_HEXESC = re.compile(rb\"\\\\'([0-9a-fA-F]{2})\")\n\n\ndef find_text_span(rtf: bytes) -> Optional[Tuple[int, int]]:\n    \"\"\"Find (start, end) byte offsets of the plain-text payload inside\n    the outermost RTF group, i.e. everything after the paragraph's\n    formatting control words and before the final closing brace.\n    Returns None if there's no \\\\partightenfactor0-anchored text run\n    (this is how ProPresenter represents an empty text box).\n    \"\"\"\n    depth = 0\n    i = 0\n    n = len(rtf)\n    seen_partightenfactor = False\n    text_start = None\n    text_end = None\n\n    while i < n:\n        c = rtf[i:i + 1]\n        if c == b\"{\":\n            depth += 1\n            i += 1\n            continue\n        if c == b\"}\":\n            depth -= 1\n            i += 1\n            if depth == 0:\n                text_end = i - 1\n                break\n            continue\n        if c == b\"\\\\\":\n            nxt = rtf[i + 1:i + 2]\n            if nxt == b\"'\":\n                m = _HEXESC.match(rtf[i:i + 4])\n                if m:\n                    if depth == 1 and seen_partightenfactor and text_start is None:\n                        text_start = i\n                    i += 4\n                    continue\n            if nxt in (b\"\\\\\", b\"{\", b\"}\"):\n                if depth == 1 and seen_partightenfactor and text_start is None:\n                    text_start = i\n                i += 2\n                continue\n            m = _CTRLWORD.match(rtf[i:i + 40])\n            if not m:\n                i += 1\n                continue\n            word = m.group(1)\n            i += m.end()\n            if word == b\"partightenfactor\":\n                seen_partightenfactor = True\n            continue\n        if c in (b\"\\r\", b\"\\n\"):\n            i += 1\n            continue\n        if depth == 1 and seen_partightenfactor and text_start is None:\n            text_start = i\n        i += 1\n\n    if text_start is None or text_end is None:\n        return None\n    return (text_start, text_end)\n\n\ndef escape_rtf(text: str) -> bytes:\n    out = bytearray()\n    for ch in text:\n        if ch == \"\\\\\":\n            out += rb\"\\\\\"\n        elif ch == \"{\":\n            out += rb\"\\{\"\n        elif ch == \"}\":\n            out += rb\"\\}\"\n        elif ch == \"\\n\":\n            out += rb\"\\line \"\n        elif ch == \"\\r\":\n            continue\n        else:\n            cp = ord(ch)\n            if 32 <= cp < 127:\n                out.append(cp)\n            else:\n                # RTF unicode escape: signed 16-bit value + ascii fallback '?'\n                signed = cp if cp < 0x8000 else cp - 0x10000\n                out += f\"\\\\u{signed}?\".encode(\"ascii\")\n    return bytes(out)\n\n\ndef replace_text(rtf: bytes, new_text: str) -> bytes:\n    span = find_text_span(rtf)\n    if span is None:\n        raise ValueError(\"this RTF blob has no text run to replace (empty/placeholder box)\")\n    start, end = span\n    return rtf[:start] + escape_rtf(new_text) + rtf[end:]\n\n\nif __name__ == \"__main__\":\n    import sys\n    rtf = open(sys.argv[1], \"rb\").read()\n    span = find_text_span(rtf)\n    if span is None:\n        print(\"no text span found\")\n    else:\n        s, e = span\n        print(\"text span:\", rtf[s:e])\n", "probundle_io.py": "\"\"\"\nprobundle_io.py\n\nRead/write .probundle files (ProPresenter's bundle format: a zip\ncontaining one .pro protobuf file plus any referenced media assets\nunder their original absolute-path-turned-zip-entry names, e.g.\n\".../Media/Assets/<uuid>.png\").\n\nWhy not just `zipfile.ZipFile(path)`?\nSome real-world .probundle files in the wild have a corrupted/placeholder\nzip64 \"end of central directory\" record (offsets of 0xFFFFFFFF... that\ndon't actually resolve) even though every local file header is intact\nand every entry is stored (uncompressed). Python's zipfile refuses to\nopen these (\"Corrupt zip64 end of central directory record\"). Rather\nthan fight that, read_probundle() scans local file headers directly\n(PK\\\\x03\\\\x04 signatures) and pulls sizes from the zip64 extra field\nwhen the classic 32-bit size fields are the 0xFFFFFFFF sentinel. This\nworks whether or not the central directory is trustworthy.\n\nwrite_probundle() always writes a clean, standard (non-zip64) zip via\nthe stdlib -- these files are small (single-digit MB at most), so\nzip64 is never actually needed on the way out, which sidesteps the\nwhole class of corruption on the write side.\n\"\"\"\n\nfrom __future__ import annotations\nimport struct\nimport zipfile\nfrom dataclasses import dataclass\nfrom typing import Dict, List\n\n\n@dataclass\nclass ProBundle:\n    # entry name -> raw bytes, in original order. Exactly one entry should\n    # end in \".pro\" -- that's the protobuf presentation file; everything\n    # else is a media asset carried along by (zip) path.\n    entries: Dict[str, bytes]\n\n    def pro_name(self) -> str:\n        candidates = [n for n in self.entries if n.lower().endswith(\".pro\")]\n        if len(candidates) != 1:\n            raise ValueError(f\"expected exactly one .pro entry, found {candidates}\")\n        return candidates[0]\n\n    def pro_bytes(self) -> bytes:\n        return self.entries[self.pro_name()]\n\n    def set_pro_bytes(self, data: bytes) -> None:\n        self.entries[self.pro_name()] = data\n\n\ndef _scan_local_headers(data: bytes) -> List[dict]:\n    \"\"\"Manually walk PK\\\\x03\\\\x04 local file headers, tolerant of a broken\n    central directory / zip64 EOCD. Returns list of dicts with filename,\n    data bytes, and the flag/method info needed to round-trip write mode.\n    \"\"\"\n    entries = []\n    pos = 0\n    n = len(data)\n    while True:\n        idx = data.find(b\"PK\\x03\\x04\", pos)\n        if idx == -1:\n            break\n        (sig, ver, flags, method, mtime, mdate, crc32,\n         csize, usize, fn_len, extra_len) = struct.unpack(\n            \"<IHHHHHIIIHH\", data[idx:idx + 30]\n        )\n        name_start = idx + 30\n        name = data[name_start:name_start + fn_len].decode(\"utf-8\", \"replace\")\n        extra = data[name_start + fn_len: name_start + fn_len + extra_len]\n        data_start = name_start + fn_len + extra_len\n\n        z64_csize, z64_usize = csize, usize\n        if csize == 0xFFFFFFFF or usize == 0xFFFFFFFF:\n            off = 0\n            while off + 4 <= len(extra):\n                hid, hlen = struct.unpack(\"<HH\", extra[off:off + 4])\n                if hid == 0x0001:\n                    vals = extra[off + 4: off + 4 + hlen]\n                    # zip64 extra field order: usize, csize, (offset, disk) if needed,\n                    # each 8 bytes, only present if the corresponding classic field\n                    # was the 0xFFFFFFFF sentinel. Both are sentinels here in every\n                    # file we've seen, so read both unconditionally like the writer did.\n                    if len(vals) >= 16:\n                        z64_usize, z64_csize = struct.unpack(\"<QQ\", vals[:16])\n                off += 4 + hlen\n\n        if method != 0:\n            raise ValueError(\n                f\"entry {name!r} uses compression method {method}, \"\n                \"only STORE (0) is supported by this reader\"\n            )\n\n        file_data = data[data_start:data_start + z64_csize]\n        entries.append({\"name\": name, \"data\": file_data})\n        pos = data_start + z64_csize\n    return entries\n\n\ndef read_probundle(path: str) -> ProBundle:\n    with open(path, \"rb\") as f:\n        raw = f.read()\n\n    # Fast path: a well-formed zip opens fine with the stdlib.\n    try:\n        with zipfile.ZipFile(path) as zf:\n            bad = zf.testzip()\n            if bad is not None:\n                raise zipfile.BadZipFile(f\"CRC mismatch in {bad}\")\n            entries = {name: zf.read(name) for name in zf.namelist()}\n            return ProBundle(entries=entries)\n    except zipfile.BadZipFile:\n        pass  # fall through to manual scan\n\n    scanned = _scan_local_headers(raw)\n    if not scanned:\n        raise ValueError(f\"{path}: no zip entries found (not a valid probundle)\")\n    entries = {e[\"name\"]: e[\"data\"] for e in scanned}\n    return ProBundle(entries=entries)\n\n\ndef write_probundle(bundle: ProBundle, path: str) -> None:\n    with zipfile.ZipFile(path, \"w\", compression=zipfile.ZIP_STORED, allowZip64=False) as zf:\n        for name, data in bundle.entries.items():\n            zf.writestr(name, data)\n\n\nif __name__ == \"__main__\":\n    import sys\n    b = read_probundle(sys.argv[1])\n    for name, data in b.entries.items():\n        print(f\"{len(data):>10}  {name}\")\n", "docx_to_probundle.py": "\"\"\"\ndocx_to_probundle.py\n\nConvert a .docx (one text slide per paragraph) into a ProPresenter\n.probundle, by cloning a real \"text slide\" Cue out of a template\n.probundle once per paragraph.\n\nWhy clone instead of hand-build a Cue from scratch: ProPresenter's Cue/\nSlide/Element protobuf schema is large, undocumented, and full of\nstyling fields (geometry, transforms, shadows, media placeholders,\nbuild/transition metadata) that are tedious and risky to get exactly\nright by hand -- one wrong field and ProPresenter reports a malformed\nfile. Cloning a real Cue from a template guarantees every one of those\nfields is already valid; we only ever touch two kinds of leaf bytes:\n    1. the RTF text blob (via rtf_builder.replace_text)\n    2. UUID strings (regenerated so cloned cues don't collide with the\n       template's or each other's)\nTag numbers, wire types, and every other byte are never touched, so\nlength prefixes recompute automatically during re-serialization and the\nresult is exactly as valid as the template it came from.\n\nUSAGE\n    python3 docx_to_probundle.py INPUT.docx TEMPLATE.probundle OUTPUT.probundle \\\\\n        [--cue-index N] [--title \"Presentation Title\"]\n\n    INPUT.docx        one slide of text per non-empty paragraph\n    TEMPLATE.probundle a real ProPresenter export containing at least one\n                        Cue with a text box you're happy to reuse as the\n                        style/layout template for every generated slide\n    OUTPUT.probundle   written fresh (never mutates the template file)\n\n    --cue-index N   which top-level Cue in the template to clone (default 0)\n    --title         optional new value for the top-level presentation title\n\nWHAT GETS REPLACED PER CLONED CUE\n    - every UUID-shaped leaf string anywhere inside the cue is regenerated\n      (so ProPresenter doesn't see duplicate slide/element identifiers)\n    - the SINGLE LARGEST RTF text run inside the cue is replaced with the\n      paragraph's text (RTF-escaped), keeping that box's original font/\n      color/size/alignment. Smaller RTF runs in the same cue (e.g. a\n      scripture-reference caption on a scripture template) are left as\n      the template wrote them -- if your template has exactly one text\n      box, this is exactly what you want with zero configuration.\n    - the cue is appended to the presentation's Cue list (top-level field\n      #13) and its identifier is appended to the ordering list inside the\n      first CueGroup (top-level field #12), so it actually shows up in\n      the slide order ProPresenter displays.\n\nLIMITATIONS / THINGS TO CHECK BEFORE TRUSTING OUTPUT\n    - Only tested against templates shaped like the Example.probundle\n      used to build this tool (single CueGroup, \"text slide\" cues with\n      one primary text box). A template with a very differently shaped\n      Cue may need small adjustments to `pick_primary_rtf()` below.\n    - Media/background elements inside the cloned cue are left exactly\n      as the template had them -- every generated slide will share the\n      template's background/media, not something per-paragraph.\n    - Always open the output in ProPresenter and check it before relying\n      on it for a live service.\n\"\"\"\n\nfrom __future__ import annotations\nimport argparse\nimport re\nimport sys\nimport uuid\nfrom typing import List, Optional\n\nimport docx  # python-docx\n\nimport protobuf_tree as pt\nimport rtf_builder as rb\nimport probundle_io as pio\n\nCUE_FIELD_NUM = 13\nCUEGROUP_FIELD_NUM = 12\nRTF_MAGIC = b\"{\\\\rtf1\"\n_UUID_RE = re.compile(\n    rb\"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$\"\n)\n\n\n# --------------------------------------------------------------- docx read\n\ndef read_docx_paragraphs(path: str) -> List[str]:\n    d = docx.Document(path)\n    out = []\n    for p in d.paragraphs:\n        text = p.text.strip()\n        if text:\n            out.append(text)\n    if not out:\n        raise ValueError(f\"{path}: no non-empty paragraphs found\")\n    return out\n\n\n# ------------------------------------------------------- protobuf helpers\n\ndef find_all_rtf_leaves(fields: List[pt.Field]) -> List[pt.Field]:\n    out = []\n    for f in fields:\n        if f.children is not None:\n            out.extend(find_all_rtf_leaves(f.children))\n        elif f.wire_type == pt.WIRE_LEN and f.raw.startswith(RTF_MAGIC):\n            out.append(f)\n    return out\n\n\ndef pick_primary_rtf(cue: pt.Field) -> pt.Field:\n    \"\"\"Of every RTF blob in this cue that actually has a text run, return\n    the one with the longest text span -- in a single-text-box template\n    this is the (only) main text box; in a multi-box template it's the\n    best guess at \"the main body text\" vs. captions/labels.\n    \"\"\"\n    candidates = []\n    for leaf in find_all_rtf_leaves(cue.children):\n        span = rb.find_text_span(leaf.raw)\n        if span is not None:\n            candidates.append((span[1] - span[0], leaf))\n    if not candidates:\n        raise ValueError(\n            \"no RTF text run found anywhere in the template cue -- \"\n            \"pick a different --cue-index\"\n        )\n    candidates.sort(key=lambda t: t[0], reverse=True)\n    return candidates[0][1]\n\n\ndef regenerate_uuids(fields: List[pt.Field]) -> None:\n    \"\"\"Walk the whole subtree in place, replacing every UUID-shaped leaf\n    string with a freshly generated UUID (uppercase, matching the\n    template's formatting).\"\"\"\n    for f in fields:\n        if f.children is not None:\n            regenerate_uuids(f.children)\n        elif f.wire_type == pt.WIRE_LEN and _UUID_RE.match(f.raw):\n            f.set_bytes(str(uuid.uuid4()).upper().encode(\"ascii\"))\n\n\ndef get_cue_identifier_field(cue: pt.Field) -> pt.Field:\n    \"\"\"The cue's own identifier sub-message: cue -> #1 (msg) -> #1 (uuid leaf).\n    This exact sub-message shape is what CueGroup's ordering list (field\n    #12 -> #2 entries) wraps around, so we reuse it directly.\n    \"\"\"\n    ident = pt.find_all(cue.children, 1)\n    if not ident:\n        raise ValueError(\"template cue has no identifier field (#1) -- unexpected shape\")\n    return ident[0]\n\n\ndef clone_cue_for_text(template_cue: pt.Field, text: str) -> pt.Field:\n    cue = pt.clone_field(template_cue)\n    regenerate_uuids(cue.children)\n    primary = pick_primary_rtf(cue)\n    primary.set_bytes(rb.replace_text(primary.raw, text))\n    return cue\n\n\ndef _remove_template_cue(root: List[pt.Field], cuegroup: pt.Field, template_cue: pt.Field) -> None:\n    \"\"\"Remove a template cue (used only as a clone source) from the\n    presentation's top-level Cue list and from the CueGroup's ordering\n    list, so it does not appear as an extra slide in the output. No-op if\n    the cue was already removed (e.g. the same template used twice).\"\"\"\n    ident = get_cue_identifier_field(template_cue)\n    template_uuid = pt.find_all(ident.children, 1)[0].raw\n    if template_cue in root:\n        root.remove(template_cue)\n    cuegroup.children = [\n        e for e in cuegroup.children\n        if not (e.num == 2 and e.children and e.children[0].raw == template_uuid)\n    ]\n\n\n# ------------------------------------------------------------- top level\n\ndef convert(docx_path: str, template_path: str, output_path: str,\n            cue_index: int = 0, new_title: Optional[str] = None) -> None:\n    paragraphs = read_docx_paragraphs(docx_path)\n\n    bundle = pio.read_probundle(template_path)\n    pro_bytes = bundle.pro_bytes()\n    root = pt.parse(pro_bytes)\n\n    cues = pt.find_all(root, CUE_FIELD_NUM)\n    if cue_index >= len(cues):\n        raise ValueError(f\"template has only {len(cues)} cue(s); --cue-index {cue_index} out of range\")\n    template_cue = cues[cue_index]\n\n    cuegroups = pt.find_all(root, CUEGROUP_FIELD_NUM)\n    if not cuegroups:\n        raise ValueError(\"template has no CueGroup (field #12) to append the new slide order into\")\n    cuegroup = cuegroups[0]\n\n    for text in paragraphs:\n        new_cue = clone_cue_for_text(template_cue, text)\n        root.append(new_cue)\n\n        ident = get_cue_identifier_field(new_cue)\n        order_entry = pt.Field(\n            num=2, wire_type=pt.WIRE_LEN, raw=b\"\",\n            children=[pt.clone_field(c) for c in ident.children],\n        )\n        cuegroup.children.append(order_entry)\n\n    # The template cue was only cloned for its shape/styling -- it is not\n    # meant to be an actual slide in the output. Remove it (and its\n    # pre-existing CueGroup ordering entry) so it does not show up as an\n    # extra, unwanted leftover slide.\n    _remove_template_cue(root, cuegroup, template_cue)\n\n    if new_title is not None:\n        title_fields = pt.find_all(root, 3)\n        if title_fields:\n            title_fields[0].set_text(new_title)\n\n    new_pro_bytes = pt.serialize(root)\n\n    # sanity check: what we just wrote must itself parse cleanly and\n    # round-trip -- if this fails, something in the edit broke wire\n    # structure and we should NOT hand the file to the user.\n    reparsed = pt.parse(new_pro_bytes)\n    if pt.serialize(reparsed) != new_pro_bytes:\n        raise AssertionError(\"internal error: generated .pro failed its own round-trip check\")\n\n    bundle.set_pro_bytes(new_pro_bytes)\n    pio.write_probundle(bundle, output_path)\n\n    print(f\"wrote {len(paragraphs)} slide(s) to {output_path}\")\n\n\ndef main():\n    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)\n    ap.add_argument(\"docx_path\")\n    ap.add_argument(\"template_path\")\n    ap.add_argument(\"output_path\")\n    ap.add_argument(\"--cue-index\", type=int, default=0)\n    ap.add_argument(\"--title\", default=None)\n    args = ap.parse_args()\n    convert(args.docx_path, args.template_path, args.output_path, args.cue_index, args.title)\n\n\nif __name__ == \"__main__\":\n    main()\n", "slide_router.py": "\"\"\"\nslide_router.py\n\nTurns a docx laid out like:\n\n    Slide 4 - Matthew 5:14-16 (NIV)\n    \"You are the light of the world...\"\n\n    Slide 7 - The greatest promise of God is His presence with His people\n\ninto typed Slide specs, and clones the right template cue for each:\nscripture lines (a \"Book chap:verse (VERSION)\" label followed by a quote\nparagraph) go to whichever template cue has multiple text boxes (quote +\nreference caption); everything else (\"point\"/hero slides -- just a label,\nno quote following) goes to whichever template cue has a single text box.\n\nWhich cue is \"scripture\" vs \"point\" is auto-detected by counting non-empty\nRTF text runs per cue (classify_cues), but can be overridden explicitly.\n\"\"\"\n\nfrom __future__ import annotations\nimport math\nimport re\nfrom dataclasses import dataclass, replace\nfrom typing import List, Optional, Tuple\n\nimport docx  # python-docx\n\nimport protobuf_tree as pt\nimport rtf_builder as rb\nimport probundle_io as pio\nimport docx_to_probundle as d2p\nimport media_builder as mb\n\nSLIDE_RE = re.compile(r\"^\\s*Slide\\s+\\d+\\s*[-\\u2013]\\s*(.*)$\", re.IGNORECASE)\nHERO_RE = re.compile(r\"\\(\\s*hero\\s+slide\\s*\\)\\s*\", re.IGNORECASE)\nREF_RE = re.compile(r\"^(.*\\d+:\\d+(?:-\\d+)?)\\s*\\(([A-Za-z]{2,8})\\)\\s*$\")\n\n\n@dataclass\nclass Slide:\n    kind: str  # 'scripture' | 'point'\n    body: str\n    reference: Optional[str] = None\n    is_hero: bool = False  # \"(hero slide)\" marker -- rendered blank, as an image placeholder\n\n\ndef parse_slides(docx_path: str) -> List[Slide]:\n    d = docx.Document(docx_path)\n    paras = [p.text.strip() for p in d.paragraphs]\n    n = len(paras)\n    slides: List[Slide] = []\n    i = 0\n    while i < n:\n        text = paras[i]\n        if not text:\n            i += 1\n            continue\n        m = SLIDE_RE.match(text)\n        if not m:\n            i += 1\n            continue\n        label = m.group(1).strip()\n\n        # look ahead for a quote paragraph before the next \"Slide N\" marker\n        j = i + 1\n        quote = None\n        while j < n:\n            nxt = paras[j]\n            if not nxt:\n                j += 1\n                continue\n            if SLIDE_RE.match(nxt):\n                break\n            quote = nxt\n            j += 1\n            break\n\n        ref_match = REF_RE.match(label)\n        if ref_match and quote:\n            slides.append(Slide(kind=\"scripture\", body=quote, reference=label))\n            i = j\n        else:\n            is_hero = bool(HERO_RE.search(label))\n            body = HERO_RE.sub(\"\", label).strip()\n            slides.append(Slide(kind=\"point\", body=body, is_hero=is_hero))\n            i += 1\n\n    if not slides:\n        raise ValueError(f\"{docx_path}: found no 'Slide N \\u2013 ...' lines to convert\")\n    return slides\n\n\n# --------------------------------------------------------- scripture wrap\n\n# A break candidate is the position right after a sentence/clause-ending\n# punctuation mark (optionally followed by a closing quote character),\n# as long as it's followed by whitespace or the end of the string --\n# never mid-word.\n_BREAK_RE = re.compile(r\"[.!?;:,][\\u2019\\u2018'\\\"\\u201d]?(?=\\s|$)\")\n\n\ndef _break_positions(text: str) -> List[int]:\n    \"\"\"Index right after each candidate punctuation break in `text`.\"\"\"\n    return [m.end() for m in _BREAK_RE.finditer(text)]\n\n\ndef wrap_scripture_text(text: str, soft_limit: int = 350, hard_limit: int = 410) -> List[str]:\n    \"\"\"Split a long quote into slide-sized chunks.\n\n    A quote that already fits within `hard_limit` (ProPresenter's real\n    textbox ceiling) is left as a single slide, even if it runs past\n    `soft_limit` -- there's no benefit to splitting text that already\n    fits. Only text that actually overflows the textbox gets split, and\n    when it does, breaks are placed near `soft_limit` (not maxed out to\n    `hard_limit`) so a 2-slide quote reads as two roughly even slides\n    instead of one nearly-full slide followed by a nearly-empty one.\n\n    Breaks are chosen at punctuation (., !, ?, ;, :, ,) wherever\n    possible -- never at a verse boundary, since this only fires within\n    a single verse's text -- falling back to a word boundary, and only\n    as a last resort (one \"word\" longer than `hard_limit`) cutting\n    mid-word so the textbox never overflows.\n    \"\"\"\n    text = re.sub(r\"\\s+\", \" \", text.strip())\n    if len(text) <= hard_limit:\n        return [text]\n\n    n_chunks = max(2, math.ceil(len(text) / soft_limit))\n    chunks: List[str] = []\n    remaining = text\n\n    while remaining:\n        chunks_left = n_chunks - len(chunks)\n        if len(remaining) <= hard_limit and chunks_left <= 1:\n            chunks.append(remaining)\n            break\n\n        # Re-target for what's left each pass, so an earlier break that\n        # landed a bit short or long doesn't throw off every chunk after it.\n        target = min(hard_limit, max(1, round(len(remaining) / max(1, chunks_left))))\n\n        window = remaining[: hard_limit + 1]\n        candidates = [b for b in _break_positions(window) if 0 < b <= hard_limit]\n        cut = min(candidates, key=lambda b: abs(b - target)) if candidates else None\n\n        if cut is None:\n            space_positions = [i + 1 for i, c in enumerate(window) if c == \" \" and 0 < i + 1 <= hard_limit]\n            cut = min(space_positions, key=lambda b: abs(b - target)) if space_positions else None\n\n        if cut is None:\n            # One \"word\" longer than the hard limit -- an overflowing\n            # textbox is worse than a mid-word cut.\n            cut = hard_limit\n\n        chunk = remaining[:cut].strip()\n        if chunk:\n            chunks.append(chunk)\n        remaining = remaining[cut:].strip()\n\n    return chunks\n\n\ndef classify_cues(root: List[pt.Field]) -> Tuple[int, int, List[int]]:\n    \"\"\"Return (scripture_cue_index, point_cue_index, box_counts_per_cue).\n    scripture = the cue with the MOST non-empty RTF text boxes (quote + caption);\n    point = the cue with the FEWEST (just the one label box).\n    \"\"\"\n    cues = pt.find_all(root, d2p.CUE_FIELD_NUM)\n    if not cues:\n        raise ValueError(\"template has no cues (field #13) at all\")\n    counts = []\n    for cue in cues:\n        leaves = d2p.find_all_rtf_leaves(cue.children)\n        nonempty = sum(1 for leaf in leaves if rb.find_text_span(leaf.raw) is not None)\n        counts.append(nonempty)\n    scripture_idx = max(range(len(counts)), key=lambda i: counts[i])\n    point_idx = min(range(len(counts)), key=lambda i: counts[i])\n    return scripture_idx, point_idx, counts\n\n\ndef clone_cue_for_slide(template_cue: pt.Field, slide: Slide) -> pt.Field:\n    cue = pt.clone_field(template_cue)\n    d2p.regenerate_uuids(cue.children)\n\n    leaves = d2p.find_all_rtf_leaves(cue.children)\n    scored = []\n    for leaf in leaves:\n        span = rb.find_text_span(leaf.raw)\n        if span is not None:\n            scored.append((span[1] - span[0], leaf))\n    if not scored:\n        raise ValueError(\"no RTF text run found in this cue -- unexpected template shape\")\n    scored.sort(key=lambda t: t[0], reverse=True)\n\n    if slide.is_hero:\n        # Placeholder slide for a future image -- clear every text box in\n        # the cue instead of filling it with the label text, leaving the\n        # cue itself (and its media/background element) untouched.\n        for _, leaf in scored:\n            leaf.set_bytes(rb.replace_text(leaf.raw, \"\"))\n        return cue\n\n    primary = scored[0][1]\n    primary.set_bytes(rb.replace_text(primary.raw, slide.body))\n\n    if slide.kind == \"scripture\" and slide.reference is not None and len(scored) > 1:\n        secondary = scored[1][1]\n        secondary.set_bytes(rb.replace_text(secondary.raw, slide.reference))\n\n    return cue\n\n\ndef convert_multi(docx_path: str, template_path: str, output_path: str,\n                   scripture_cue_index: Optional[int] = None,\n                   point_cue_index: Optional[int] = None,\n                   new_title: Optional[str] = None,\n                   background_image_bytes: Optional[bytes] = None,\n                   background_image_ext: Optional[str] = None) -> dict:\n    slides = parse_slides(docx_path)\n\n    bundle = pio.read_probundle(template_path)\n    root = pt.parse(bundle.pro_bytes())\n\n    cues = pt.find_all(root, d2p.CUE_FIELD_NUM)\n    auto_scripture, auto_point, counts = classify_cues(root)\n    s_idx = auto_scripture if scripture_cue_index is None else scripture_cue_index\n    p_idx = auto_point if point_cue_index is None else point_cue_index\n\n    if s_idx >= len(cues) or p_idx >= len(cues):\n        raise ValueError(f\"template has only {len(cues)} cue(s); got scripture={s_idx} point={p_idx}\")\n\n    scripture_template = cues[s_idx]\n    point_template = cues[p_idx]\n\n    # Swapping the background on the two *template* cues (rather than on\n    # each clone individually) means every paragraph cloned from them\n    # below automatically inherits the new image -- one swap, one new\n    # zip entry, no per-slide repetition. Cues elsewhere in the deck that\n    # aren't used as a template are never touched, so this only ever\n    # affects point/hero and scripture slide backgrounds, per the point\n    # of the feature.\n    background_applied_to: List[str] = []\n    if background_image_bytes is not None:\n        if not background_image_ext:\n            raise ValueError(\"background_image_ext is required when background_image_bytes is provided\")\n        new_filename = mb.new_asset_filename(background_image_ext)\n        for label, template_cue in ((\"scripture\", scripture_template), (\"point\", point_template)):\n            try:\n                mb.swap_background_image(template_cue, new_filename)\n            except ValueError:\n                # This template cue has no Media/Assets background to\n                # swap (e.g. a text-only scripture cue with no image) --\n                # leave it alone rather than failing the whole run.\n                continue\n            background_applied_to.append(label)\n        if not background_applied_to:\n            raise ValueError(\n                \"an image was uploaded, but neither the scripture cue nor the point/hero cue \"\n                \"has an existing Media/Assets background to replace\"\n            )\n        mb.add_asset_to_bundle(bundle, new_filename, background_image_bytes)\n\n    cuegroups = pt.find_all(root, d2p.CUEGROUP_FIELD_NUM)\n    if not cuegroups:\n        raise ValueError(\"template has no CueGroup (field #12) to append the new slide order into\")\n    cuegroup = cuegroups[0]\n\n    generated_kinds: List[str] = []\n    num_wrapped = 0\n    for slide in slides:\n        template_cue = scripture_template if slide.kind == \"scripture\" else point_template\n\n        if slide.kind == \"scripture\":\n            text_chunks = wrap_scripture_text(slide.body)\n        else:\n            text_chunks = [slide.body]\n        if len(text_chunks) > 1:\n            num_wrapped += 1\n\n        for chunk in text_chunks:\n            sub_slide = replace(slide, body=chunk)\n            new_cue = clone_cue_for_slide(template_cue, sub_slide)\n            root.append(new_cue)\n            generated_kinds.append(slide.kind)\n\n            ident = d2p.get_cue_identifier_field(new_cue)\n            order_entry = pt.Field(\n                num=2, wire_type=pt.WIRE_LEN, raw=b\"\",\n                children=[pt.clone_field(c) for c in ident.children],\n            )\n            cuegroup.children.append(order_entry)\n\n    # Both template cues were only cloned for their shape/styling -- they\n    # are not meant to be actual slides in the output. Remove them (and\n    # their pre-existing CueGroup ordering entries) so they do not show up\n    # as extra, unwanted leftover slides.\n    for template_cue in {id(scripture_template): scripture_template, id(point_template): point_template}.values():\n        d2p._remove_template_cue(root, cuegroup, template_cue)\n\n    if new_title:\n        title_fields = pt.find_all(root, 3)\n        if title_fields:\n            title_fields[0].set_text(new_title)\n\n    new_pro_bytes = pt.serialize(root)\n    reparsed = pt.parse(new_pro_bytes)\n    if pt.serialize(reparsed) != new_pro_bytes:\n        raise AssertionError(\"internal error: generated .pro failed its own round-trip check\")\n\n    bundle.set_pro_bytes(new_pro_bytes)\n    pio.write_probundle(bundle, output_path)\n\n    return {\n        \"num_slides\": len(generated_kinds),\n        \"num_source_slides\": len(slides),\n        \"num_scripture_wrapped\": num_wrapped,\n        \"scripture_cue_index\": s_idx,\n        \"point_cue_index\": p_idx,\n        \"box_counts\": counts,\n        \"kinds\": generated_kinds,\n        \"background_applied_to\": background_applied_to,\n    }\n", "media_builder.py": "\"\"\"\nmedia_builder.py\n\nSwap a Cue's background image (its Media Element) to point at a freshly\nuploaded PNG/JPEG, the same way rtf_builder.py swaps a text box's words\nand docx_to_probundle.regenerate_uuids() swaps identifier strings: find\nthe relevant leaves by *shape*, edit their bytes in place, and let\nprotobuf_tree.serialize() recompute length prefixes.\n\nProPresenter records a Media Element's image three separate times as\nplain leaf strings scattered through the Cue's protobuf subtree (and,\nwe found by inspecting a real .probundle, that whole trio is actually\nduplicated a second time nearby -- apparently a \"current location\" plus\na thumbnail/proxy record that mirrors it):\n    1. the bare asset filename            \"<uuid>.<ext>\"\n    2. an absolute file:// URL            \"file:///.../Media/Assets/<uuid>.<ext>\"\n    3. a bundle-relative path             \"Media/Assets/<uuid>.<ext>\"\n\nRather than hard-code the field-number path to each occurrence (fragile,\nand this module found the trio duplicated once already -- there's no\nreason to trust there's only ever one copy), find_background_filenames()\nand swap_background_image() walk the whole cue subtree and match leaves\nby regex, the same way regenerate_uuids() finds every UUID-shaped leaf\nwithout knowing where they live. Every matching occurrence gets updated,\nwhether there are two copies or five.\n\nCore functions:\n    find_background_filenames(fields) -> set[bytes]\n        Every distinct asset filename referenced by a Media/Assets path\n        leaf anywhere in this subtree. A cue with a single background\n        image should return a set of exactly one name.\n\n    swap_background_image(cue, new_filename) -> int\n        Replace every leaf referencing the cue's current background\n        filename with `new_filename` (bare filename, absolute path, and\n        relative path occurrences alike). Returns how many leaves were\n        changed. Raises ValueError if the cue has no Media/Assets image\n        reference, or more than one distinct one (ambiguous).\n\n    add_asset_to_bundle(bundle, new_filename, image_bytes) -> str\n        Add `image_bytes` as a new zip entry in `bundle`, named to match\n        the naming convention of whatever Media/Assets entry is already\n        in the bundle (same directory prefix, swapped filename). Returns\n        the new entry name. Never removes or overwrites an existing\n        entry -- other, untouched cues may still reference the original\n        image.\n\n    new_asset_filename(ext) -> str\n        A fresh \"<UUID>.<ext>\" filename in ProPresenter's own style.\n\"\"\"\n\nfrom __future__ import annotations\nimport re\nimport uuid\nfrom typing import List, Set\n\nimport protobuf_tree as pt\nimport probundle_io as pio\n\n# A bare \"<name>.<ext>\" leaf with no path separator -- the standalone\n# filename ProPresenter stores as one of the three background-image leaves.\n_FILENAME_RE = re.compile(rb\"^[^/\\\\]+\\.[A-Za-z0-9]{2,5}$\")\n\n# An absolute file:// URL ending in .../Media/Assets/<filename>.\n_ABS_PATH_RE = re.compile(rb\"^file://.*/Media/Assets/([^/]+)$\")\n\n# A bundle-relative path, exactly \"Media/Assets/<filename>\".\n_REL_PATH_RE = re.compile(rb\"^Media/Assets/([^/]+)$\")\n\n_DEFAULT_EXT = {\n    \"image/png\": \"png\",\n    \"image/jpeg\": \"jpg\",\n    \"image/jpg\": \"jpg\",\n}\n\n\ndef find_background_filenames(fields: List[pt.Field]) -> Set[bytes]:\n    \"\"\"Walk this subtree (typically a single Cue's .children) and return\n    the set of distinct asset filenames referenced by any Media/Assets\n    path leaf. The absolute-path and relative-path leaves for the same\n    image agree on the filename, so this naturally de-duplicates down to\n    one entry per distinct background image in scope.\n    \"\"\"\n    found: Set[bytes] = set()\n\n    def walk(fs: List[pt.Field]) -> None:\n        for f in fs:\n            if f.children is not None:\n                walk(f.children)\n                continue\n            if f.wire_type != pt.WIRE_LEN:\n                continue\n            m = _ABS_PATH_RE.match(f.raw)\n            if m:\n                found.add(m.group(1))\n                continue\n            m = _REL_PATH_RE.match(f.raw)\n            if m:\n                found.add(m.group(1))\n                continue\n\n    walk(fields)\n    return found\n\n\ndef swap_background_image(cue: pt.Field, new_filename: str) -> int:\n    \"\"\"In place, replace every leaf referencing this cue's current\n    background-image filename with `new_filename`. Matches the bare\n    filename, the file:// absolute path, and the Media/Assets relative\n    path wherever they occur in the cue -- including any duplicated\n    locator/thumbnail record.\n\n    Returns the number of leaves changed.\n\n    Raises ValueError if the cue has no Media/Assets image reference at\n    all, or if it references more than one distinct filename (ambiguous\n    which one is \"the\" background -- this cue isn't a simple single-image\n    template and needs a human to sort out).\n    \"\"\"\n    filenames = find_background_filenames(cue.children)\n    if not filenames:\n        raise ValueError(\"no Media/Assets image reference found in this cue\")\n    if len(filenames) > 1:\n        names = b\", \".join(sorted(filenames)).decode(\"utf-8\", \"replace\")\n        raise ValueError(\n            f\"cue references {len(filenames)} distinct image assets ({names}); \"\n            \"expected exactly one background image per cue\"\n        )\n    old_filename = next(iter(filenames))\n    new_filename_b = new_filename.encode(\"ascii\")\n\n    changed = 0\n\n    def walk(fs: List[pt.Field]) -> None:\n        nonlocal changed\n        for f in fs:\n            if f.children is not None:\n                walk(f.children)\n                continue\n            if f.wire_type != pt.WIRE_LEN:\n                continue\n\n            if f.raw == old_filename:\n                f.set_bytes(new_filename_b)\n                changed += 1\n                continue\n\n            m = _ABS_PATH_RE.match(f.raw)\n            if m and m.group(1) == old_filename:\n                prefix = f.raw[: m.start(1)]\n                f.set_bytes(prefix + new_filename_b)\n                changed += 1\n                continue\n\n            m = _REL_PATH_RE.match(f.raw)\n            if m and m.group(1) == old_filename:\n                f.set_bytes(b\"Media/Assets/\" + new_filename_b)\n                changed += 1\n                continue\n\n    walk(cue.children)\n\n    if changed == 0:\n        # find_background_filenames() and this walk use the same\n        # matching rules, so this would mean they've drifted apart.\n        raise AssertionError(\"internal error: found a background filename but replaced no leaves\")\n    return changed\n\n\ndef add_asset_to_bundle(bundle: pio.ProBundle, new_filename: str, image_bytes: bytes) -> str:\n    \"\"\"Add `image_bytes` as a new zip entry, named to mirror the naming\n    convention of whatever Media/Assets entry is already in the bundle\n    (same absolute-path prefix, swapped filename), so ProPresenter's\n    importer finds it the same way it finds the original asset.\n\n    Raises ValueError if the bundle has no existing Media/Assets entry\n    to copy the naming convention from.\n    \"\"\"\n    existing = [n for n in bundle.entries if \"/Media/Assets/\" in n or n.startswith(\"Media/Assets/\")]\n    if not existing:\n        raise ValueError(\"template bundle has no existing Media/Assets entry to mirror the naming convention from\")\n    prefix = existing[0].rsplit(\"/\", 1)[0]\n    new_entry_name = f\"{prefix}/{new_filename}\"\n    bundle.entries[new_entry_name] = image_bytes\n    return new_entry_name\n\n\ndef new_asset_filename(ext: str) -> str:\n    \"\"\"A fresh \"<UUID>.<ext>\" filename, uppercase, matching the style\n    ProPresenter itself uses for asset files.\"\"\"\n    ext = ext.lower().lstrip(\".\")\n    if not ext:\n        raise ValueError(\"image needs a file extension (e.g. 'png' or 'jpg')\")\n    return f\"{str(uuid.uuid4()).upper()}.{ext}\"\n\n\ndef ext_from_mime(mime_type: str) -> str:\n    \"\"\"Best-effort file extension for a browser-supplied MIME type, e.g.\n    'image/png' -> 'png'. Falls back to the subtype string for anything\n    not in the small known-image table.\"\"\"\n    mime_type = (mime_type or \"\").lower()\n    if mime_type in _DEFAULT_EXT:\n        return _DEFAULT_EXT[mime_type]\n    if \"/\" in mime_type:\n        return mime_type.split(\"/\", 1)[1]\n    raise ValueError(f\"can't infer a file extension from MIME type {mime_type!r}\")\n"};
+const DEFAULT_TEMPLATE_B64 = "UEsDBC0AAAAAACCX81zAAY37//////////+YABwAL1VzZXJzL3ZpZGVvbWFjL0xpYnJhcnkvQXBwbGljYXRpb24gU3VwcG9ydC9SZW5ld2VkVmlzaW9uL1Byb1ByZXNlbnRlci9Vc2VyV29ya3NwYWNlcy9Qcm9QcmVzZW50ZXIvTWVkaWEvQXNzZXRzLzA3NzUxNDI3LTJENzItNDQ2Qy04OUNDLTFERTYxM0IyMDlEOC5wbmcBABgAwWoAAAAAAADBagAAAAAAAAAAAAAAAAAAiVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAABnsVYUAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAHgKADAAQAAAABAAAEOAAAAAAShg/QAABAAElEQVR4AezQgQAAAACAoP2pFymECgMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYDRlbgAAKh9JREFUYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBi4HTqQAQAAABjkb32PrxAyYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGDBgwYMCAAQMGbgMB9boAAWdb8yEAAAAASUVORK5CYIJQSwMELQAAAAAAKJfzXPEyuIH//////////y4AHABUaGUgR29zcGVsIEFjY29yZGluZyB0byBJc2FpYWggd2sgNSBzbGlkZXMucHJvAQAYAGQaAAAAAAAAZBoAAAAAAACTawAAAAAAAAodCAESBggPEAYYARgBIg8IFRAEIgkzNTI1ODM3MDUSJgokMkYzQjhGMjgtNDYxMi00OTAyLUJGRDAtRDI2RERDNUMyQzMxGipUaGUgR29zcGVsIEFjY29yZGluZyB0byBJc2FpYWggd2sgNSBzbGlkZXNCBwoFJQAAgD9KAGJ8CioKJgokMkMzRThDREUtRjI2My00MjNFLTgxNDUtOTM4MEE0QTE4QzNFIgASJgokNTNBNzYxM0UtQkQwNC00NTYzLTgwNzgtRDA4NUU5NzM5NjA4EiYKJEJBRjhFNDA5LTVFOTMtNDhBNi05M0Y4LTI4RTIwMzFDMTZBOGq1HgomCiRCQUY4RTQwOS01RTkzLTQ4QTYtOTNGOC0yOEUyMDMxQzE2QTgoAUIAUuccCiYKJEI5NTVEMEU2LTVBRkItNDYwRS1CQzE2LTJBRkVDMEVCMjMyNRoUEhJJc2FpYWggNzoxLTIgKE5JVikwAUgLugGhHBKeHAqXHAqYCgr9CQomCiQzNzE5MzE1Qy05MjUwLTQ0MUYtQUQzMi00MzZCQUNBODZFQTASCVNjcmlwdHVyZRooChIJZmZmZmbGU0ARmpmZmZnZTEASEgmVKsbUr4abQBGHqN61dfWJQCEAAADg0X92QCkAAAAAAADwP0KSAQgBEgYKABIAGgASIQoJCQAAAAAAAPA/EgkJAAAAAAAA8D8aCQkAAAAAAADwPxI8ChIJAAAAAAAA8D8RAAAAAAAA8D8SEgkAAAAAAADwPxEAAAAAAADwPxoSCQAAAAAAAPA/EQAAAAAAAPA/EiEKCREAAAAAAADwPxIJEQAAAAAAAPA/GgkRAAAAAAAA8D8aAggBShYKFA24HgU+FT0KFz8dMzNzPyUAAIA/Uh8RAAAAAAAACEAaFA0AAIA/FQAAgD8dAACAPyUAAIA/WisRAAAAAACwc0AZAAAAAAAAFEAhAAAAAAAAFEAqBSUAAIA/MQAAAAAAAOg/YgkRmpmZmZmZqT9qgwcaZgomCg5IZWx2ZXRpY2EtQm9sZBEAAAAAAIBRQEABSglIZWx2ZXRpY2EaFA2kpWI/FbByYD8dQNlkPyUAAIA/IgAyFggCKQAAAAAAAPA/YQAAAAAAAFVAagBKAFkAAAAAAAAAgJgBASIiEQAAAAAAsHNAGQAAAAAAACRAKgUlAACAPzEAAAAAAADoPyrNBXtccnRmMVxhbnNpXGFuc2ljcGcxMjUyXGNvY29hcnRmMjgyMgpcY29jb2F0ZXh0c2NhbGluZzBcY29jb2FwbGF0Zm9ybTB7XGZvbnR0YmxcZjBcZnN3aXNzXGZjaGFyc2V0MCBIZWx2ZXRpY2EtQm9sZDt9CntcY29sb3J0Ymw7XHJlZDI1NVxncmVlbjI1NVxibHVlMjU1O1xyZWQyMTlcZ3JlZW4yMTZcYmx1ZTIyMTt9CntcKlxleHBhbmRlZGNvbG9ydGJsOztcY3NzcmdiXGM4ODUzNFxjODc2NzVcYzg5Mzk0O30KXGRlZnRhYjE2ODAKXHBhcmRccGFyZGVmdGFiMTY4MFxwYXJkaXJuYXR1cmFsXHFjXHBhcnRpZ2h0ZW5mYWN0b3IwCgpcZjBcYlxmczE0MCBcY2YyIFxDb2NvYUxpZ2F0dXJlMCBZb3Ugd2lsbCBnbyBvdXQgaW4gam95IGFuZCBiZSBsZWQgZm9ydGggaW4gcGVhY2U7IHRoZSBtb3VudGFpbnMgYW5kIGhpbGxzIHdpbGwgYnVyc3QgaW50byBzb25nXCdhMGJlZm9yZSB5b3UsIGFuZCBhbGwgdGhlIHRyZWVzXCdhMG9mIHRoZSBmaWVsZCB3aWxsIGNsYXAgdGhlaXIgaGFuZHMuIFxzdXBlciAxM1xub3N1cGVyc3ViIEluc3RlYWQgb2YgdGhlIHRob3JuYnVzaCB3aWxsIGdyb3cgdGhlIGp1bmlwZXIsIGFuZCBpbnN0ZWFkIG9mIGJyaWVyc1wnYTB0aGUgbXlydGxlXCdhMHdpbGwgZ3Jvdy4gVGhpcyB3aWxsIGJlIGZvciB0aGVcJ2EwTG9yZFwnOTJzIHJlbm93biwgZm9yIGFuIGV2ZXJsYXN0aW5nIHNpZ24sIHRoYXQgd2lsbCBlbmR1cmUgZm9yZXZlci5cJzk0fTABQgBIAVoHICDigKIgIGIWGhQNPzV+PxVcj0I/HW8SAz0lAACAP3IAIANKFBEAAAAAAADgPxgBIXeegqw0EK0/CsMHCqgHCiYKJEJBRUQwMTRFLUJFNTYtNDhBNS1CM0ZDLTQwMjhDMjc2QjdGNhIJUmVmZXJlbmNlGigKEgkAAAAAAFBvQBFmZmZmZoKNQBISCezSPFvuKpZAEbC2P5i4kFNAKQAAAAAAAPA/QpIBCAESBgoAEgAaABIhCgkJAAAAAAAA8D8SCQkAAAAAAADwPxoJCQAAAAAAAPA/EjwKEgkAAAAAAADwPxEAAAAAAADwPxISCQAAAAAAAPA/EQAAAAAAAPA/GhIJAAAAAAAA8D8RAAAAAAAA8D8SIQoJEQAAAAAAAPA/EgkRAAAAAAAA8D8aCREAAAAAAADwPxoCCAFKFgoUDQAAgD8VAACAPx0AAIA/JQAAgD9SHxEAAAAAAAAIQBoUDQAAgD8VAACAPx0AAIA/JQAAgD9aKxEAAAAAALBzQBkAAAAAAAAUQCEAAAAAAAAUQCoFJQAAgD8xAAAAAAAA6D9iCRGamZmZmZmpP2q3BBpwCiYKDkhlbHZldGljYS1Cb2xkEQAAAAAAAE5AQAFKCUhlbHZldGljYRABGhQNpKViPxWwcmA/HUDZZD8lAACAPyIAMhYIAilnZmZmZmbmP2EAAAAAAABVQGoASgBZAAAAAAAAAIBqBgoCEBIQAZgBASIiEQAAAAAAsHNAGQAAAAAAACRAKgUlAACAPzEAAAAAAADoPyr3AntccnRmMVxhbnNpXGFuc2ljcGcxMjUyXGNvY29hcnRmMjgyMgpcY29jb2F0ZXh0c2NhbGluZzBcY29jb2FwbGF0Zm9ybTB7XGZvbnR0YmxcZjBcZnN3aXNzXGZjaGFyc2V0MCBIZWx2ZXRpY2EtQm9sZDt9CntcY29sb3J0Ymw7XHJlZDI1NVxncmVlbjI1NVxibHVlMjU1O1xyZWQyMTlcZ3JlZW4yMTZcYmx1ZTIyMTt9CntcKlxleHBhbmRlZGNvbG9ydGJsOztcY3NzcmdiXGM4ODUzNFxjODc2NzVcYzg5Mzk0O30KXGRlZnRhYjE2ODAKXHBhcmRccGFyZGVmdGFiMTY4MFxzbDE2OFxzbG11bHQxXHBhcmRpcm5hdHVyYWxccWNccGFydGlnaHRlbmZhY3RvcjAKClxmMFxiXGZzMTIwIFxjZjIgXENvY29hTGlnYXR1cmUwIElzYWlhaCA1NToxMi0xMyAoTlxjZjIgSVYpfTABQgBIAVoHICDigKIgIGIWGhQNPzV+PxVcj0I/HW8SAz0lAACAP3IAIANKFBEAAAAAAADgPxgBIYUP9WhVC7I/Cu4JCtUJCiYKJEIzNkIwQTAyLTNENjgtNDk3Qi04OTcxLUE3MzhDMDM2QjEyOBIoMDc3NTE0MjctMkQ3Mi00NDZDLTg5Q0MtMURFNjEzQjIwOUQ4LnBuZxoWCgASEgkAAAAAAACeQBEAAAAAAOCQQCkAAAAAAADwP0KSAQgBEgYKABIAGgASIQoJCQAAAAAAAPA/EgkJAAAAAAAA8D8aCQkAAAAAAADwPxI8ChIJAAAAAAAA8D8RAAAAAAAA8D8SEgkAAAAAAADwPxEAAAAAAADwPxoSCQAAAAAAAPA/EQAAAAAAAPA/EiEKCREAAAAAAADwPxIJEQAAAAAAAPA/GgkRAAAAAAAA8D8aAggBSqQEGp8ECiYKJDZCQ0RENzNDLTgxNTgtNEZBRS04MDhELTRCNUNCMzdGQTQ3NxLhAQqhAWZpbGU6Ly8vVXNlcnMvdmlkZW9tYWMvTGlicmFyeS9BcHBsaWNhdGlvbiUyMFN1cHBvcnQvUmVuZXdlZFZpc2lvbi9Qcm9QcmVzZW50ZXIvVXNlcldvcmtzcGFjZXMvUHJvUHJlc2VudGVyL01lZGlhL0Fzc2V0cy8wNzc1MTQyNy0yRDcyLTQ0NkMtODlDQy0xREU2MTNCMjA5RDgucG5nGAEiOQgKEjVNZWRpYS9Bc3NldHMvMDc3NTE0MjctMkQ3Mi00NDZDLTg5Q0MtMURFNjEzQjIwOUQ4LnBuZxoHKgNwbmcwASqHAgoeKhIJAAAAAAAAnkARAAAAAADgkEA6BAoAEgByAHgBEuQBCuEBCqEBZmlsZTovLy9Vc2Vycy92aWRlb21hYy9MaWJyYXJ5L0FwcGxpY2F0aW9uJTIwU3VwcG9ydC9SZW5ld2VkVmlzaW9uL1Byb1ByZXNlbnRlci9Vc2VyV29ya3NwYWNlcy9Qcm9QcmVzZW50ZXIvTWVkaWEvQXNzZXRzLzA3NzUxNDI3LTJENzItNDQ2Qy04OUNDLTFERTYxM0IyMDlEOC5wbmcYASI5CAoSNU1lZGlhL0Fzc2V0cy8wNzc1MTQyNy0yRDcyLTQ0NkMtODlDQy0xREU2MTNCMjA5RDgucG5nIAFSHxEAAAAAAAAIQBoUDQAAgD8VAACAPx0AAIA/JQAAgD9aKxEAAAAAALBzQBkAAAAAAAAUQCEAAAAAAAAUQCoFJQAAgD8xAAAAAAAA6D9iCRGamZmZmZmpP2rIAhpfCigKDUhlbHZldGljYU5ldWURAAAAAAAARUBKDkhlbHZldGljYSBOZXVlGhQNAACAPxUAAIA/HQAAgD8lAACAPyIAMhYIAikAAAAAAADwP2EAAAAAAABVQGoASgCYAQEiKxEAAAAAALBzQBkAAAAAAAAUQCEAAAAAAAAUQCoFJQAAgD8xAAAAAAAA6D8qkAF7XHJ0ZjFcYW5zaVxhbnNpY3BnMTI1Mlxjb2NvYXJ0ZjI4MjIKXGNvY29hdGV4dHNjYWxpbmcwXGNvY29hcGxhdGZvcm0we1xmb250dGJsfQp7XGNvbG9ydGJsO1xyZWQyNTVcZ3JlZW4yNTVcYmx1ZTI1NTt9CntcKlxleHBhbmRlZGNvbG9ydGJsOzt9Cn0wAUIASAFaByAg4oCiICBiFhoUDT81fj8VXI9CPx1vEgM9JQAAgD9yAEoUEQAAAAAAAOA/GAEhq6qqqqqqqj8gASoFJQAAgD8yEgkAAAAAAACeQBEAAAAAAOCQQDomCiQ0OTJFRTMyQi05OUUyLTQ4Q0QtQTY3Qi00Q0RDNzFEOTdCQTEiAhgBUpoBCiYKJDcwNTM2MjczLTNDOTUtNEU3Ny1BMDU1LTEwOUEyNzBGNDcwNTABSBfCAmsKaQomCiQ5MkIwMzZFMy00MkRDLTQ2NUItOUVDOC0wODZGNEMzQjQ2QjgSCFNsaWRlIDEyGjUKJgokNzRCMjM1QjItMUY1Ny00OUMxLTlBREQtOUQ2OEEzMDYyMjVGEgtNQUlOIE1BQ1JPU2ABap8UCiYKJDUzQTc2MTNFLUJEMDQtNDU2My04MDc4LUQwODVFOTczOTYwOBInRmluZGluZyBSZWZ1Z2UgLSBUZXh0IFNsaWRlLmpwZyAxIDEgMSAxKAFCAFKiEgomCiQ2MzAyRjEwOC0xMkRELTQ5MzctOUYzNS05RkE1NEYwMUJFMUUwAUgLugHyERLvEQrqEQrbBwrABwomCiQ1NUM3RjRDNC01RjE0LTRGNzItQjEwNi1FQ0E1M0ZDM0ZBMTESBVBvaW50GigKEgkzMzMzM3NMQBEAAAAAAMBKQBISCeqeQA5yOJxAESxuEUAKaI5AKQAAAAAAAPA/QpIBCAESBgoAEgAaABIhCgkJAAAAAAAA8D8SCQkAAAAAAADwPxoJCQAAAAAAAPA/EjwKEgkAAAAAAADwPxEAAAAAAADwPxISCQAAAAAAAPA/EQAAAAAAAPA/GhIJAAAAAAAA8D8RAAAAAAAA8D8SIQoJEQAAAAAAAPA/EgkRAAAAAAAA8D8aCREAAAAAAADwPxoCCAFKFgoUDbgeBT4VPQoXPx0zM3M/JQAAgD9SHxEAAAAAAAAIQBoUDQAAgD8VAACAPx0AAIA/JQAAgD9aKxEAAAAAALBzQBkAAAAAAAAUQCEAAAAAAAAUQCoFJQAAgD8xAAAAAAAA6D9iCRGamZmZmZmpP2rTBBqVAQomCg5IZWx2ZXRpY2EtQm9sZBEAAAAAAIBRQEABSglIZWx2ZXRpY2EaFA2kpWI/FbByYD8dQNlkPyUAAIA/IgAyFggCKQAAAAAAAPA/YQAAAAAAAFVAagBKAFkAAAAAAAAAgGotCgIQHmInCg5JbnRlcjI4cHQtQm9sZBEAAAAAAIBRQEABSgpJbnRlciAyOHB0mAEBIiIRAAAAAACwc0AZAAAAAAAAJEAqBSUAAIA/MQAAAAAAAOg/Ku0Ce1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcY29jb2FydGYyODIyClxjb2NvYXRleHRzY2FsaW5nMFxjb2NvYXBsYXRmb3JtMHtcZm9udHRibFxmMFxmc3dpc3NcZmNoYXJzZXQwIEhlbHZldGljYS1Cb2xkO30Ke1xjb2xvcnRibDtccmVkMjU1XGdyZWVuMjU1XGJsdWUyNTU7XHJlZDIxOVxncmVlbjIxNlxibHVlMjIxO30Ke1wqXGV4cGFuZGVkY29sb3J0Ymw7O1xjc3NyZ2JcYzg4NTM0XGM4NzY3NVxjODkzOTQ7fQpcZGVmdGFiMTY4MApccGFyZFxwYXJkZWZ0YWIxNjgwXHBhcmRpcm5hdHVyYWxccWNccGFydGlnaHRlbmZhY3RvcjAKClxmMFxiXGZzMTQwIFxjZjIgXENvY29hTGlnYXR1cmUwIFRoZSBHb3NwZWwgQWNjb3JkaW5nIHRvIElzYWlhaH0wAUIASAFaByAg4oCiICBiFhoUDT81fj8VXI9CPx1vEgM9JQAAgD9yACADShQRAAAAAAAA4D8YASFk5G9kI1msPwrNCQq0CQomCiRDMTFDNkUwMC0yQ0MxLTQwMkMtQkU0Ri1DMDgzNTIxQUQ3ODcaFgoAEhIJAAAAAAAAnkARAAAAAADgkEApAAAAAAAA8D9CkgEIARIGCgASABoAEiEKCQkAAAAAAADwPxIJCQAAAAAAAPA/GgkJAAAAAAAA8D8SPAoSCQAAAAAAAPA/EQAAAAAAAPA/EhIJAAAAAAAA8D8RAAAAAAAA8D8aEgkAAAAAAADwPxEAAAAAAADwPxIhCgkRAAAAAAAA8D8SCREAAAAAAADwPxoJEQAAAAAAAPA/GgIIAUqkBBqfBAomCiRENEExREM0NS00NTBFLTQxNDgtQTdEMC0xNTFCNkQwMEYxNDMS4QEKoQFmaWxlOi8vL1VzZXJzL3ZpZGVvbWFjL0xpYnJhcnkvQXBwbGljYXRpb24lMjBTdXBwb3J0L1JlbmV3ZWRWaXNpb24vUHJvUHJlc2VudGVyL1VzZXJXb3Jrc3BhY2VzL1Byb1ByZXNlbnRlci9NZWRpYS9Bc3NldHMvMDc3NTE0MjctMkQ3Mi00NDZDLTg5Q0MtMURFNjEzQjIwOUQ4LnBuZxgBIjkIChI1TWVkaWEvQXNzZXRzLzA3NzUxNDI3LTJENzItNDQ2Qy04OUNDLTFERTYxM0IyMDlEOC5wbmcaByoDcG5nMAEqhwIKHioSCQAAAAAAAJ5AEQAAAAAA4JBAOgQKABIAcgB4ARLkAQrhAQqhAWZpbGU6Ly8vVXNlcnMvdmlkZW9tYWMvTGlicmFyeS9BcHBsaWNhdGlvbiUyMFN1cHBvcnQvUmVuZXdlZFZpc2lvbi9Qcm9QcmVzZW50ZXIvVXNlcldvcmtzcGFjZXMvUHJvUHJlc2VudGVyL01lZGlhL0Fzc2V0cy8wNzc1MTQyNy0yRDcyLTQ0NkMtODlDQy0xREU2MTNCMjA5RDgucG5nGAEiOQgKEjVNZWRpYS9Bc3NldHMvMDc3NTE0MjctMkQ3Mi00NDZDLTg5Q0MtMURFNjEzQjIwOUQ4LnBuZyABUh8RAAAAAAAACEAaFA0AAIA/FQAAgD8dAACAPyUAAIA/WisRAAAAAACwc0AZAAAAAAAAFEAhAAAAAAAAFEAqBSUAAIA/MQAAAAAAAOg/YgkRmpmZmZmZqT9q0QIaaAooCg1IZWx2ZXRpY2FOZXVlEQAAAAAAAEVASg5IZWx2ZXRpY2EgTmV1ZRoUDQAAgD8VAACAPx0AAIA/JQAAgD8iADIWCAIpAAAAAAAA8D9hAAAAAAAAVUBqAEoAWQAAAAAAAACAmAEBIisRAAAAAACwc0AZAAAAAAAAFEAhAAAAAAAAFEAqBSUAAIA/MQAAAAAAAOg/KpABe1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcY29jb2FydGYyODIyClxjb2NvYXRleHRzY2FsaW5nMFxjb2NvYXBsYXRmb3JtMHtcZm9udHRibH0Ke1xjb2xvcnRibDtccmVkMjU1XGdyZWVuMjU1XGJsdWUyNTU7fQp7XCpcZXhwYW5kZWRjb2xvcnRibDs7fQp9MAFCAEgBWgcgIOKAoiAgYhYaFA0/NX4/FVyPQj8dbxIDPSUAAIA/cgBKFBEAAAAAAADgPxgBIauqqqqqqqo/MhIJAAAAAAAAnkARAAAAAADgkEA6JgokQUU1NzAxQTgtNEU5QS00MjE2LUJFOUMtMDU5RjFEQ0ExMUQ0IgBSoAEKJgokOEZFQzVERUEtMjNERS00QTBELUJDMjctQTZBRjMwMTJEMDVCMAFIF8ICcQpvCiYKJDBCRTE2QTlELTZCQjUtNDc4Ni05NTFELUFGQjBCQkE5RDJGRBIOU2xpZGUgMSAoSGVybykaNQomCiRBQjQyNjhCQS1DODY5LTQzODMtOTM3Ri01QzFGRkVFQzhDMDASC01BSU4gTUFDUk9TYAFyAIoBCSkAAAAAAMByQFBLAQIeAy0AAAAAACCX81zAAY37//////////+YABwAAAAAAAAAAAAAAAAAAAAvVXNlcnMvdmlkZW9tYWMvTGlicmFyeS9BcHBsaWNhdGlvbiBTdXBwb3J0L1JlbmV3ZWRWaXNpb24vUHJvUHJlc2VudGVyL1VzZXJXb3Jrc3BhY2VzL1Byb1ByZXNlbnRlci9NZWRpYS9Bc3NldHMvMDc3NTE0MjctMkQ3Mi00NDZDLTg5Q0MtMURFNjEzQjIwOUQ4LnBuZwEAGADBagAAAAAAAMFqAAAAAAAAAAAAAAAAAABQSwECHgMtAAAAAAAol/Nc8TK4gf//////////LgAcAAAAAAAAAAAAAACTawAAVGhlIEdvc3BlbCBBY2NvcmRpbmcgdG8gSXNhaWFoIHdrIDUgc2xpZGVzLnBybwEAGABkGgAAAAAAAGQaAAAAAAAAk2sAAAAAAABQSwYGLAAAAAAAAAAeAy0AAAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAvAEAAAAAAABfhgAAAAAAAFBLBgcAAAAAuYcAAAAAAAABAAAAUEsFBgAAAAACAAIAvAEAAF+GAAAAAA==";
+let pyodideReady = null;
+let templateFile = null;
+let docxFile = null;
+let bgFile = null;
+
+const tplToggle = document.getElementById('tplToggle');
+const templateSection = document.getElementById('templateSection');
+const tplStatus = document.getElementById('tplStatus');
+const tplStatusLink = document.getElementById('tplStatusLink');
+
+function setTemplateStatus(){
+  if (templateFile){
+    tplStatus.innerHTML = 'Using custom template &mdash; <span class="accent" id="tplStatusLink">' + templateFile.name + '</span>';
+    tplToggle.classList.add('custom');
+  } else {
+    tplStatus.innerHTML = 'Using default template &mdash; <span class="accent" id="tplStatusLink">change</span>';
+    tplToggle.classList.remove('custom');
+  }
+  document.getElementById('tplStatusLink').addEventListener('click', toggleTemplateSection);
+}
+
+function toggleTemplateSection(){
+  const showing = templateSection.style.display !== 'none';
+  templateSection.style.display = showing ? 'none' : 'block';
+  tplToggle.classList.toggle('active', !showing);
+}
+
+tplToggle.addEventListener('click', toggleTemplateSection);
+tplStatusLink.addEventListener('click', toggleTemplateSection);
+
+const runBtn = document.getElementById('runBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const progressPct = document.getElementById('progressPct');
+const outputBox = document.getElementById('output');
+const downloadLink = document.getElementById('downloadLink');
+const outName = document.getElementById('outName');
+const breakdownEl = document.getElementById('breakdown');
+
+// Rough weight of each phase toward the overall bar, in percent.
+const PHASES = [
+  { label: 'Loading Python runtime\u2026',   pct: 8 },
+  { label: 'Installing dependencies\u2026',  pct: 22 },
+  { label: 'Reading files\u2026',            pct: 34 },
+  { label: 'Routing slides\u2026',           pct: 55 },
+  { label: 'Checking output\u2026',          pct: 85 },
+  { label: 'Writing .probundle\u2026',       pct: 95 },
+];
+
+function setProgress(phaseIdx, overridePct){
+  progressWrap.classList.remove('err');
+  progressWrap.classList.add('show');
+  const phase = PHASES[phaseIdx];
+  const pct = overridePct !== undefined ? overridePct : phase.pct;
+  progressLabel.textContent = phase.label;
+  progressPct.textContent = pct + '%';
+  progressFill.style.width = pct + '%';
+}
+
+function setProgressDone(){
+  progressLabel.textContent = 'Done';
+  progressPct.textContent = '100%';
+  progressFill.style.width = '100%';
+}
+
+function setProgressError(message){
+  progressWrap.classList.add('err');
+  progressLabel.textContent = message || 'Failed';
+  progressPct.textContent = '';
+}
+
+function wireDrop(dropId, inputId, nameId, removeId, onPick){
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  const removeEl = document.getElementById(removeId);
+
+  function setFile(file){
+    onPick(file);
+    if (file){
+      nameEl.textContent = file.name;
+      drop.classList.add('has-file');
+    } else {
+      nameEl.textContent = '';
+      drop.classList.remove('has-file');
+    }
+    updateRunButton();
+  }
+
+  drop.addEventListener('click', (e) => {
+    if (drop.classList.contains('has-file')) return; // file card isn't a click target
+    if (e.target !== input) {
+      e.preventDefault();
+      input.click();
+    }
+  });
+  drop.addEventListener('keydown', (e) => {
+    if (drop.classList.contains('has-file')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      input.click();
+    }
+  });
+
+  input.addEventListener('change', () => {
+    if (input.files.length) setFile(input.files[0]);
+  });
+
+  removeEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    input.value = '';
+    setFile(null);
+  });
+
+  ['dragenter','dragover'].forEach(evt => {
+    drop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!drop.classList.contains('has-file')) drop.classList.add('drag-over');
+    });
+  });
+  ['dragleave','dragend'].forEach(evt => {
+    drop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove('drag-over');
+    });
+  });
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    drop.classList.remove('drag-over');
+    if (drop.classList.contains('has-file')) return;
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file){
+      input.files = e.dataTransfer.files;
+      setFile(file);
+    }
+  });
+}
+
+function updateRunButton(){
+  if (docxFile){
+    runBtn.disabled = false;
+    runBtn.textContent = 'Build .probundle';
+  } else {
+    runBtn.disabled = true;
+    runBtn.textContent = 'Waiting on files\u2026';
+  }
+}
+
+function formatSize(bytes){
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function classifyFile(file){
+  const ext = (/\.([A-Za-z0-9]+)$/.exec(file.name) || [null, ''])[1].toLowerCase();
+  if (ext === 'docx') return 'docx';
+  if (['png', 'jpg', 'jpeg'].includes(ext) || file.type === 'image/png' || file.type === 'image/jpeg') return 'bg';
+  return null;
+}
+
+const fileListEl = document.getElementById('fileList');
+
+function renderFileList(){
+  fileListEl.innerHTML = '';
+  const items = [];
+  if (docxFile) items.push({ file: docxFile, kind: 'docx', icon: '&#128196;', label: 'Slide text' });
+  if (bgFile) items.push({ file: bgFile, kind: 'bg', icon: '&#127748;', label: 'Background' });
+
+  items.forEach(({ file, kind, icon, label }) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML =
+      '<span class="file-item-icon">' + icon + '</span>' +
+      '<div class="file-item-info">' +
+        '<div class="file-item-name">' + escapeHtml(file.name) + '</div>' +
+        '<div class="file-item-meta">' + label + ' &middot; ' + formatSize(file.size) + '</div>' +
+      '</div>' +
+      '<button type="button" class="file-item-remove" aria-label="Remove file" data-kind="' + kind + '">&times;</button>';
+    fileListEl.appendChild(div);
+  });
+
+  fileListEl.querySelectorAll('.file-item-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const kind = btn.getAttribute('data-kind');
+      if (kind === 'docx') docxFile = null;
+      if (kind === 'bg') bgFile = null;
+      renderFileList();
+      updateRunButton();
+    });
+  });
+}
+
+function handleIncomingFiles(fileListArg){
+  Array.from(fileListArg).forEach(file => {
+    const kind = classifyFile(file);
+    if (kind === 'docx') docxFile = file;
+    else if (kind === 'bg') bgFile = file;
+  });
+  renderFileList();
+  updateRunButton();
+}
+
+function wireCombinedDrop(){
+  const drop = document.getElementById('dropCombined');
+  const input = document.getElementById('fileCombined');
+
+  drop.addEventListener('click', (e) => {
+    if (e.target !== input) {
+      e.preventDefault();
+      input.click();
+    }
+  });
+  drop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      input.click();
+    }
+  });
+  input.addEventListener('change', () => {
+    if (input.files.length) handleIncomingFiles(input.files);
+    input.value = '';
+  });
+  ['dragenter', 'dragover'].forEach(evt => {
+    drop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'dragend'].forEach(evt => {
+    drop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove('drag-over');
+    });
+  });
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    drop.classList.remove('drag-over');
+    if (e.dataTransfer.files && e.dataTransfer.files.length) handleIncomingFiles(e.dataTransfer.files);
+  });
+}
+
+wireDrop('dropTemplate','fileTemplate','nameTemplate','removeTemplate', f => { templateFile = f; setTemplateStatus(); });
+wireCombinedDrop();
+
+async function ensurePyodide(){
+  if (pyodideReady) return pyodideReady;
+  pyodideReady = (async () => {
+    setProgress(0);
+    const pyodide = await loadPyodide();
+
+    setProgress(1);
+    await pyodide.loadPackage(['micropip']);
+    const micropip = pyodide.pyimport('micropip');
+    await micropip.install('python-docx');
+
+    for (const [name, src] of Object.entries(PY_SOURCES)){
+      pyodide.FS.writeFile('/' + name, src);
+    }
+    pyodide.runPython('import sys\nif "/" not in sys.path: sys.path.insert(0, "/")');
+    return pyodide;
+  })();
+  return pyodideReady;
+}
+
+async function runConversion(){
+  outputBox.classList.remove('show');
+  setProgress(0);
+  try {
+    const pyodide = await ensurePyodide();
+
+    setProgress(2);
+    let templateBytes;
+    if (templateFile){
+      templateBytes = new Uint8Array(await templateFile.arrayBuffer());
+    } else {
+      const binStr = atob(DEFAULT_TEMPLATE_B64);
+      templateBytes = new Uint8Array(binStr.length);
+      for (let i = 0; i < binStr.length; i++) templateBytes[i] = binStr.charCodeAt(i);
+    }
+    const docxBytes = new Uint8Array(await docxFile.arrayBuffer());
+    pyodide.FS.writeFile('/template.probundle', templateBytes);
+    pyodide.FS.writeFile('/input.docx', docxBytes);
+
+    let bgExt = null;
+    if (bgFile) {
+      const bgBytes = new Uint8Array(await bgFile.arrayBuffer());
+      pyodide.FS.writeFile('/background.img', bgBytes);
+      const extMatch = /\.([A-Za-z0-9]+)$/.exec(bgFile.name);
+      bgExt = extMatch ? extMatch[1].toLowerCase() : (bgFile.type === 'image/jpeg' ? 'jpg' : 'png');
+      if (bgExt === 'jpeg') bgExt = 'jpg';
+    }
+
+    setProgress(3);
+    const title = document.getElementById('titleField').value.trim();
+
+    pyodide.globals.set('scripture_idx_js', pyodide.globals.get('None'));
+    pyodide.globals.set('point_idx_js', pyodide.globals.get('None'));
+    pyodide.globals.set('title_js', title.length ? title : pyodide.globals.get('None'));
+    pyodide.globals.set('bg_ext_js', bgExt === null ? pyodide.globals.get('None') : bgExt);
+
+    const pyRunner = `
+import json
+import slide_router as sr
+
+_bg_bytes = None
+if bg_ext_js is not None:
+    with open('/background.img', 'rb') as _f:
+        _bg_bytes = _f.read()
+
+_result = sr.convert_multi('/input.docx', '/template.probundle', '/output.probundle',
+                            scripture_cue_index=scripture_idx_js, point_cue_index=point_idx_js,
+                            new_title=title_js,
+                            background_image_bytes=_bg_bytes, background_image_ext=bg_ext_js)
+json.dumps(_result)
+`;
+    const resultJson = await pyodide.runPythonAsync(pyRunner);
+    const result = JSON.parse(resultJson);
+    setProgress(4);
+    setProgress(5);
+
+    const outBytes = pyodide.FS.readFile('/output.probundle');
+    setProgressDone();
+
+    const blob = new Blob([outBytes], {type:'application/zip'});
+    const url = URL.createObjectURL(blob);
+    const sanitizedTitle = title.length ? title.replace(/[\\/:*?"<>|]+/g, '').trim() : '';
+    const outFilename = (sanitizedTitle.length ? sanitizedTitle : docxFile.name.replace(/\.docx$/i, '')) + '.probundle';
+    downloadLink.href = url;
+    downloadLink.setAttribute('download', outFilename);
+    outName.textContent = outFilename;
+
+    const nScripture = result.kinds.filter(k => k === 'scripture').length;
+    const nPoint = result.kinds.filter(k => k === 'point').length;
+    let breakdown =
+      result.num_slides + ' slide(s) from ' + result.num_source_slides + ' source line(s) \u2014 ' +
+      nScripture + ' scripture, ' + nPoint + ' point/hero';
+    if (result.num_scripture_wrapped) {
+      breakdown += ' \u2014 ' + result.num_scripture_wrapped + ' long verse(s) wrapped to extra slide(s)';
+    }
+    if (bgFile) {
+      const applied = result.background_applied_to || [];
+      breakdown += applied.length
+        ? ' \u2014 background applied to: ' + applied.join(', ')
+        : ' \u2014 background image was uploaded but not applied';
+    }
+    breakdownEl.textContent = breakdown;
+
+    outputBox.classList.add('show');
+  } catch (err) {
+    setProgressError(err && err.message ? err.message : String(err));
+    console.error(err);
+  }
+}
+
+runBtn.addEventListener('click', () => {
+  runBtn.disabled = true;
+  runConversion().finally(() => { updateRunButton(); });
+});
+</script>
+</body>
+</html>
