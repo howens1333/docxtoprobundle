@@ -635,6 +635,9 @@ async function runConversion(){
     const pyRunner = `
 import json
 import slide_router as sr
+import protobuf_tree as pt
+import probundle_io as pio
+import docx_to_probundle as d2p
 
 _bg_bytes = None
 if bg_ext_js is not None:
@@ -646,12 +649,78 @@ for _fname, _ext in image_entries_js.to_py():
     with open(_fname, 'rb') as _f:
         _image_files.append((_f.read(), _ext))
 
+# Snapshot the template's original CueGroup ordering *before* conversion,
+# so we know where the scripture/point/image template cues sat relative to
+# any untouched cues (e.g. a series-hero or goodbye slide) around them.
+def _cue_uuid(cue):
+    ident = pt.find_all(cue.children, 1)[0]
+    return pt.find_all(ident.children, 1)[0].raw
+
+def _order_uuid(entry):
+    return pt.find_all(entry.children, 1)[0].raw
+
+_orig_bundle = pio.read_probundle('/template.probundle')
+_orig_root = pt.parse(_orig_bundle.pro_bytes())
+_orig_cues = pt.find_all(_orig_root, d2p.CUE_FIELD_NUM)
+_orig_cuegroups = pt.find_all(_orig_root, d2p.CUEGROUP_FIELD_NUM)
+_orig_order = None
+_removed_uuids = None
+if _orig_cuegroups:
+    _orig_order = [_order_uuid(e) for e in _orig_cuegroups[0].children if e.num == 2]
+    _auto_s, _auto_p, _auto_i, _ = sr.classify_cues(_orig_root)
+    _s_idx = _auto_s if scripture_idx_js is None else scripture_idx_js
+    _p_idx = _auto_p if point_idx_js is None else point_idx_js
+    _i_idx = _auto_i if image_idx_js is None else image_idx_js
+    if _i_idx is None:
+        _i_idx = _p_idx
+    _removed_uuids = {_cue_uuid(_orig_cues[_s_idx]), _cue_uuid(_orig_cues[_p_idx]), _cue_uuid(_orig_cues[_i_idx])}
+
 _result = sr.convert_multi('/input.docx', '/template.probundle', '/output.probundle',
                             scripture_cue_index=scripture_idx_js, point_cue_index=point_idx_js,
                             image_cue_index=image_idx_js,
                             new_title=title_js,
                             background_image_bytes=_bg_bytes, background_image_ext=bg_ext_js,
                             image_files=_image_files if _image_files else None)
+
+# Reposition the newly-generated slides back into the gap the removed
+# template cues left behind (convert_multi appends them at the very end),
+# so any untouched cue that originally came *after* the template cues
+# (e.g. a series-hero/goodbye slide) doesn't end up stranded right next
+# to whatever now-untouched cue came *before* them.
+if _orig_order and _removed_uuids:
+    try:
+        _out_bundle = pio.read_probundle('/output.probundle')
+        _out_root = pt.parse(_out_bundle.pro_bytes())
+        _out_cuegroups = pt.find_all(_out_root, d2p.CUEGROUP_FIELD_NUM)
+        _cg0 = _out_cuegroups[0]
+        _order_entries = [f for f in _cg0.children if f.num == 2]
+        _other_fields = [f for f in _cg0.children if f.num != 2]
+        _entries_by_uuid = {_order_uuid(e): e for e in _order_entries}
+        _orig_uuid_set = set(_orig_order)
+        _generated_entries = [e for e in _order_entries if _order_uuid(e) not in _orig_uuid_set]
+
+        _final_entries = []
+        _inserted = False
+        for _u in _orig_order:
+            if _u in _removed_uuids:
+                if not _inserted:
+                    _final_entries.extend(_generated_entries)
+                    _inserted = True
+                continue
+            if _u in _entries_by_uuid:
+                _final_entries.append(_entries_by_uuid[_u])
+        if not _inserted:
+            _final_entries.extend(_generated_entries)
+
+        _cg0.children = _other_fields + _final_entries
+        _new_pro_bytes = pt.serialize(_out_root)
+        _reparsed = pt.parse(_new_pro_bytes)
+        if pt.serialize(_reparsed) == _new_pro_bytes:
+            _out_bundle.set_pro_bytes(_new_pro_bytes)
+            pio.write_probundle(_out_bundle, '/output.probundle')
+    except Exception:
+        pass  # if anything about this template's shape doesn't match, keep convert_multi's original ordering
+
 json.dumps(_result)
 `;
     const resultJson = await pyodide.runPythonAsync(pyRunner);
