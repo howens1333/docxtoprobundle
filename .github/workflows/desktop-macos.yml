@@ -8,18 +8,8 @@ permissions:
   contents: read
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-            label: Apple-Silicon
-          - runner: macos-15-intel
-            arch: x64
-            label: Intel
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    runs-on: macos-15-intel
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,10 +21,10 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run desktop:prepare
       - run: npm run desktop:verify
-      - run: npm run desktop:build -- ${{ matrix.arch }}
+      - run: npm run desktop:build -- universal
       - uses: actions/upload-artifact@v4
         with:
-          name: Sermon-Converter-${{ matrix.label }}
-          path: dist/Sermon-Converter-${{ matrix.label }}.zip
+          name: Sermon-Converter-Mac
+          path: dist/Sermon-Converter-Mac.zip
           if-no-files-found: error
           retention-days: 30

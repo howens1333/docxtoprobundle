@@ -4,7 +4,7 @@ The Mac app includes Electron, Pyodide, lxml, python-docx and typing_extensions.
 
 ## Download and open
 
-Download the Apple Silicon or Intel artifact from the latest successful **Build Mac App** run under this repository's Actions tab. Unzip the artifact, then unzip the included Sermon-Converter ZIP. Move **Sermon Converter.app** to Applications.
+Download the Sermon-Converter-Mac artifact from the latest successful **Build Mac App** run under this repository's Actions tab. Unzip the artifact, then unzip the included Sermon-Converter ZIP. Move **Sermon Converter.app** to Applications.
 
 The builds have a local ad-hoc signature, not an Apple Developer ID signature or notarization. macOS may block the first launch. After trying to open the app, use **System Settings → Privacy & Security → Open Anyway** if macOS offers it for this app. Do not disable Gatekeeper globally.
 
@@ -20,10 +20,9 @@ Use Node.js 24 and npm. Downloading dependencies during the build needs internet
 npm ci --ignore-scripts
 npm run desktop:prepare
 npm run desktop:verify
-npm run desktop:build -- arm64
-npm run desktop:build -- x64
+npm run desktop:build -- universal
 ```
 
-`desktop:verify` blocks network access and performs a synthetic Word-to-bundle conversion with the bundled Python runtime. A macOS build also launches the packaged app with external networking blocked and repeats that conversion in Electron before producing a downloadable ZIP. Each architecture is built and tested on a matching GitHub macOS runner. `codesign` adds and verifies an ad-hoc signature without a certificate. The GitHub workflow publishes build artifacts for 30 days; the app's source and build recipe remain in the repository.
+`desktop:verify` blocks network access and performs a synthetic Word-to-bundle conversion with the bundled Python runtime. A macOS build also launches the packaged app with external networking blocked and repeats that conversion in Electron before producing a downloadable ZIP. The universal app contains Intel and Apple Silicon executables. The workflow verifies both architectures and launches the app on its Intel build runner; the Apple Silicon execution path is not separately run in this workflow. `codesign` adds and verifies an ad-hoc signature without a certificate. The GitHub workflow publishes build artifacts for 30 days; the app's source and build recipe remain in the repository.
 
 The web version is unchanged. Desktop preparation transforms a copy of `index.html` and downloads pinned runtime resources, verifying package checksums. Generated runtime assets, `node_modules`, and app distributions are excluded from source control. Python wheel licenses remain inside their bundled wheel files; Pyodide and Electron license files are included in the distribution.
