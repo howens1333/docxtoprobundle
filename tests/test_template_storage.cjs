@@ -80,7 +80,7 @@ test('failed save keeps current file usable and reports that it was not saved',a
   const db=storage();db.options.failWrites=true;const page=app(db);
   await page.run("selectSeriesTemplate(new File(['gold'], 'Gold.probundle'))");
   assert.equal(page.run('templateFile.name'),'Gold.probundle');
-  assert.match(page.run('templateStorageMessage'),/could not save/);
+  assert.match(page.run('templateStorageMessage'),/could not save/i);
   assert.equal(db.data.size,0);
 });
 test('failed removal warns that saved copy may return',async()=>{
