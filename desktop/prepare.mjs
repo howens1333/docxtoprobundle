@@ -65,4 +65,5 @@ await cp(path.join(root,'desktop','smoke.py'),path.join(app,'smoke.py'));
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 await writeFile(path.join(app,'package.json'),JSON.stringify({name:'sermon-converter',productName:'Sermon Converter',version:pkg.version,main:'main.cjs',description:'Offline ProPresenter sermon converter',author:'Nate Howe'},null,2));
 await download('https://raw.githubusercontent.com/pyodide/pyodide/0.26.1/LICENSE',path.join(app,'PYODIDE-LICENSE'));
+await download(`https://raw.githubusercontent.com/python/cpython/v${lock.info.python}/LICENSE`,path.join(app,'PYTHON-LICENSE'));
 console.log('Offline app assets prepared.');

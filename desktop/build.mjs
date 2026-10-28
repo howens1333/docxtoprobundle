@@ -1,5 +1,5 @@
 import {packager} from '@electron/packager';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile,cp} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -10,6 +10,10 @@ if(!['arm64','x64','universal'].includes(arch))throw new Error('Choose universal
 const paths=await packager({dir:path.join(root,'.desktop-app'),out:path.join(root,'dist'),name:'Sermon Converter',platform:'darwin',arch,electronVersion:config.devDependencies.electron,icon:path.join(root,'desktop','icon.icns'),appBundleId:'com.natehowe.sermonconverter',appCategoryType:'public.app-category.productivity',appVersion:config.version,overwrite:true,prune:false,asar:false});
 for(const folder of paths){
   const app=path.join(folder,'Sermon Converter.app');
+  // Preserve Electron/Chromium attribution files inside the distributed app.
+  for(const file of ['LICENSE','LICENSES.chromium.html']){
+    await cp(path.join(folder,file),path.join(app,'Contents','Resources',file));
+  }
   if(process.platform==='darwin'){
     // Local ad-hoc signature: no Apple developer account or certificate.
     execFileSync('codesign',['--force','--deep','--sign','-',app],{stdio:'inherit'});
