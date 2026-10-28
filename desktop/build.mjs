@@ -1,4 +1,4 @@
-import packager from '@electron/packager';
+import {packager} from '@electron/packager';
 import {readFile,mkdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
