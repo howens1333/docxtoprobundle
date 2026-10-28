@@ -359,9 +359,10 @@ button.run:disabled{opacity:.45;cursor:not-allowed;}
 
     <section class="card">
       <div class="card-title">Current series template</div>
-      <div class="card-subtitle">Export your current sermon as a .probundle. Its backgrounds, text styling, title, closing slides, and macro references will be reused.</div>
+      <div class="card-subtitle">Choose your series export once. It is saved in this browser and reused each week. Replace it when your series artwork or styling changes.</div>
       <button type="button" class="modal-done" id="chooseCurrentTemplate">Choose template</button>
-      <span id="templateSummary">Required — use a current ProPresenter export.</span>
+      <span id="templateSummary" role="status" aria-live="polite">Loading saved template…</span>
+      <div class="card-subtitle">Saved on this browser and device. Clearing site data removes the saved template.</div>
     </section>
 
     <section class="card">
@@ -434,7 +435,7 @@ const templateModal = document.getElementById('templateModal');
 const templateModalClose = document.getElementById('templateModalClose');
 const templateModalDone = document.getElementById('templateModalDone');
 function setTemplateStatus(){
-  document.getElementById('templateSummary').textContent = templateFile ? templateFile.name : 'Required — use a current ProPresenter export.';
+  document.getElementById('templateSummary').textContent = (templateFile ? templateFile.name + ' — ' : '') + templateStorageMessage;
   tplToggle.classList.toggle('custom', !!templateFile);
   tplToggle.title = templateFile ? 'Template settings — custom template selected' : 'Template settings';
 }
@@ -450,7 +451,10 @@ function closeTemplateModal(){
   document.body.style.overflow = '';
 }
 tplToggle.addEventListener('click', openTemplateModal);
-document.getElementById('chooseCurrentTemplate').addEventListener('click', openTemplateModal);
+document.getElementById('chooseCurrentTemplate').addEventListener('click', () => {
+  if (templateFile) document.getElementById('fileTemplate').click();
+  else openTemplateModal();
+});
 templateModalClose.addEventListener('click', closeTemplateModal);
 templateModalDone.addEventListener('click', closeTemplateModal);
 templateModal.addEventListener('click', (e) => { if (e.target === templateModal) closeTemplateModal(); });
@@ -643,10 +647,7 @@ function handleIncomingFiles(fileListArg){
   Array.from(fileListArg).forEach(file => {
     const kind = classifyFile(file);
     if (kind === 'template') {
-      templateFile = file;
-      document.getElementById('nameTemplate').textContent = file.name;
-      document.getElementById('dropTemplate').classList.add('has-file');
-      setTemplateStatus();
+      selectSeriesTemplate(file);
     }
     else if (kind === 'docx') docxFile = file;
     else if (kind === 'img') slideImageFiles.push(file);
@@ -698,8 +699,99 @@ function wireCombinedDrop(){
   });
 }
 
-wireDrop('dropTemplate','fileTemplate','nameTemplate','removeTemplate', f => { templateFile = f; setTemplateStatus(); });
+// Keep large template blobs in IndexedDB rather than localStorage.
+let templateRevision = 0;
+let templateStorageMessage = 'Loading saved template…';
+let templateWriteQueue = Promise.resolve();
+function openTemplateDatabase(){
+  return new Promise((resolve, reject) => {
+    if (!globalThis.indexedDB) return reject(new Error('Browser storage is unavailable'));
+    const request = indexedDB.open('sermon-slide-converter', 1);
+    let abandoned = false;
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('templates')) request.result.createObjectStore('templates');
+    };
+    request.onsuccess = () => {
+      if (abandoned) { request.result.close(); return; }
+      resolve(request.result);
+    };
+    request.onerror = () => reject(request.error || new Error('Could not open template storage'));
+    request.onblocked = () => { abandoned = true; reject(new Error('Template storage is blocked')); };
+  });
+}
+async function templateStorageOperation(mode, operation){
+  const db = await openTemplateDatabase();
+  return new Promise((resolve, reject) => {
+    let transaction;
+    let request;
+    try {
+      transaction = db.transaction('templates', mode);
+      request = operation(transaction.objectStore('templates'));
+    } catch (error) { db.close(); reject(error); return; }
+    transaction.oncomplete = () => { db.close(); resolve(request.result); };
+    transaction.onabort = transaction.onerror = () => {
+      db.close(); reject(transaction.error || request.error || new Error('Template storage failed'));
+    };
+  });
+}
+function showTemplateSelection(){
+  document.getElementById('nameTemplate').textContent = templateFile ? templateFile.name : '';
+  document.getElementById('dropTemplate').classList.toggle('has-file', !!templateFile);
+  document.getElementById('chooseCurrentTemplate').textContent = templateFile ? 'Replace series template' : 'Choose template';
+  setTemplateStatus();
+  updateRunButton();
+}
+function selectSeriesTemplate(file){
+  templateFile = file;
+  const revision = ++templateRevision;
+  templateStorageMessage = file ? 'Saving for next time…' : 'Removing saved template…';
+  showTemplateSelection();
+  // Serialize writes so rapid replacement/removal cannot restore an old template.
+  templateWriteQueue = templateWriteQueue.catch(() => {}).then(async () => {
+    try {
+      if (file) {
+        await templateStorageOperation('readwrite', store => store.put({
+          name: file.name, type: file.type, lastModified: file.lastModified, blob: file
+        }, 'current-series'));
+      } else {
+        await templateStorageOperation('readwrite', store => store.delete('current-series'));
+      }
+      if (revision === templateRevision) {
+        templateStorageMessage = file ? 'Saved in this browser — ready next time.' : 'Choose a current series export once to get started.';
+      }
+    } catch (error) {
+      if (revision === templateRevision) {
+        templateStorageMessage = file
+          ? 'Ready for this visit, but could not save. Browser storage may be full or unavailable.'
+          : 'Removed for this visit, but could not clear the saved copy. It may return after reloading.';
+      }
+    }
+    if (revision === templateRevision) showTemplateSelection();
+  });
+  return templateWriteQueue;
+}
+async function restoreSeriesTemplate(){
+  const revision = templateRevision;
+  try {
+    const saved = await templateStorageOperation('readonly', store => store.get('current-series'));
+    if (revision !== templateRevision) return;
+    if (saved) {
+      if (!(saved.blob instanceof Blob) || !saved.name) throw new Error('Invalid saved template');
+      templateFile = new File([saved.blob], saved.name, {type: saved.type || '', lastModified: saved.lastModified || Date.now()});
+      templateStorageMessage = 'Saved in this browser — ready to use.';
+    } else {
+      templateStorageMessage = 'Choose a current series export once to get started.';
+    }
+  } catch (error) {
+    if (revision !== templateRevision) return;
+    templateStorageMessage = 'Saved template unavailable. Choose an export to use for this visit.';
+  }
+  showTemplateSelection();
+}
+
+wireDrop('dropTemplate','fileTemplate','nameTemplate','removeTemplate', selectSeriesTemplate);
 wireCombinedDrop();
+restoreSeriesTemplate();
 
 async function ensurePyodide(){
   if (pyodideReady) return pyodideReady;
