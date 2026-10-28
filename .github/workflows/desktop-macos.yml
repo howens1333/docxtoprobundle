@@ -1,0 +1,40 @@
+name: Build Mac App
+on:
+  push:
+    branches: [main, 'desktop/**']
+    paths: ['index.html', 'desktop/**', 'package.json', 'package-lock.json', '.github/workflows/desktop-macos.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            label: Apple-Silicon
+          - runner: macos-15-intel
+            arch: x64
+            label: Intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm run desktop:prepare
+      - run: npm run desktop:verify
+      - run: npm run desktop:build -- ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sermon-Converter-${{ matrix.label }}
+          path: dist/Sermon-Converter-${{ matrix.label }}.zip
+          if-no-files-found: error
+          retention-days: 30
