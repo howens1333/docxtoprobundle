@@ -1,0 +1,16 @@
+{
+  "name": "sermon-converter-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline desktop packaging for Sermon Converter",
+  "scripts": {
+    "desktop:prepare": "node desktop/prepare.mjs",
+    "desktop:verify": "node desktop/verify-offline.mjs",
+    "desktop:build": "node desktop/build.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.1.0",
+    "pyodide": "0.26.1"
+  }
+}

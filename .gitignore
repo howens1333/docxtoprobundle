@@ -1,0 +1,4 @@
+node_modules/
+.desktop-app/
+dist/
+__pycache__/
