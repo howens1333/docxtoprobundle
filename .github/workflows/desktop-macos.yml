@@ -8,6 +8,8 @@ permissions:
   contents: read
 jobs:
   build:
+    permissions:
+      contents: write
     runs-on: macos-15-intel
     timeout-minutes: 25
     steps:
@@ -28,3 +30,9 @@ jobs:
           path: dist/Sermon-Converter-Mac.zip
           if-no-files-found: error
           retention-days: 30
+      - name: Publish Mac download
+        if: github.ref == 'refs/heads/desktop/publish-mac-download'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create mac-v0.1.0 dist/Sermon-Converter-Mac.zip --target "$GITHUB_SHA" --title "Sermon Converter for Mac 0.1.0" --notes "Offline app for macOS 13 or later. Supports Intel and Apple Silicon. Unzip and move Sermon Converter.app to Applications."
