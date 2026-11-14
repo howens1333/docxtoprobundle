@@ -25,6 +25,7 @@
 
 .source-tabs{display:flex;gap:3px;padding:3px;background:var(--surface);border:1px solid var(--line);border-radius:8px}.source-tabs button{border:0;border-radius:5px;background:transparent;color:var(--text-secondary);padding:5px 10px;font:inherit;font-size:12px}.source-tabs button[aria-selected=true]{background:var(--window);color:var(--text);box-shadow:0 1px 3px #0001}
 #outlineText{display:block;width:100%;min-height:230px;resize:vertical;padding:14px;border:1px solid var(--line-strong);border-radius:10px;color:var(--text);background:var(--surface-strong);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin-bottom:14px}#outlineText:focus{outline:2px solid var(--blue-border);border-color:var(--blue)}#pastePanel[hidden]{display:none}
+.mac-download{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 16px;color:var(--text-secondary);font-size:12px}.mac-download a{text-decoration:none}
 </style>
 </head>
 
@@ -51,6 +52,7 @@
     </div>
 
 
+    <div class="mac-download"><a class="secondary-button" href="https://github.com/howens1333/docxtoprobundle/releases/download/mac-v0.1.0/Sermon-Converter-Mac.zip">Download Mac app</a><span>Offline · macOS 13+</span></div>
     <div class="modal-backdrop" id="templateModal" hidden>
       <section class="template-modal" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
         <div class="modal-header">
